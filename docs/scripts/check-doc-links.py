@@ -17,7 +17,7 @@ from urllib.parse import quote, unquote, urlsplit
 from markdown_it import MarkdownIt
 
 MARKDOWN = MarkdownIt("commonmark").enable("table").enable("strikethrough")
-PLAN_ID = re.compile(r"PLAN-[0-9]{6}(?![0-9])")
+DOCUMENT_ID = re.compile(r"(?<![A-Za-z0-9])(?:PLAN|ADR|UC|FR|NFR)-[0-9]{6}(?![0-9])")
 
 
 @dataclass
@@ -123,11 +123,11 @@ def sources(root):
 
 def check_links(root):
     errors, cache = [], {}
-    plans = defaultdict(list)
-    for path in (root / "docs/plans").rglob("PLAN-*.md"):
-        match = PLAN_ID.match(path.name)
+    documents = defaultdict(list)
+    for path in (root / "docs").rglob("*.md"):
+        match = DOCUMENT_ID.match(path.name)
         if match and path.is_file() and path.resolve().is_relative_to(root):
-            plans[match[0]].append(path)
+            documents[match[0]].append(path)
 
     def document(path):
         if path not in cache:
@@ -166,9 +166,9 @@ def check_links(root):
                 resolved = target.relative_to(root).as_posix()
                 if not target.exists():
                     suggestion = ""
-                    match = PLAN_ID.search(local)
-                    if match and len(plans[match[0]]) == 1:
-                        new_path = plans[match[0]][0]
+                    match = DOCUMENT_ID.search(local)
+                    if match and len(documents[match[0]]) == 1:
+                        new_path = documents[match[0]][0]
                         suggestion = quote(Path(os.path.relpath(new_path, source.parent)).as_posix())
                         if url.query:
                             suggestion += "?" + url.query

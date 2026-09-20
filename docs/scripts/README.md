@@ -6,7 +6,7 @@ Requires Python 3.13 with the dependencies in [requirements.txt](requirements.tx
 python -m pip install -r docs/scripts/requirements.txt
 ```
 
-Run commands from the repository root. Both scripts accept `--root PATH` for another checkout and default to the repository containing the script.
+Run commands from the repository root. All scripts accept `--root PATH` for another checkout and default to the repository containing the script.
 
 ## Synchronize plans
 
@@ -24,6 +24,20 @@ Move plans according to their frontmatter status and regenerate only the four ac
 
 Generated indexes contain ID, linked title, status, and update date, ordered by ID. Frontmatter is the source of truth; edit plans, not index rows. Repeated synchronization without input changes must produce no differences.
 
+## Synchronize specifications
+
+```sh
+python docs/scripts/sync-specifications.py
+python docs/scripts/sync-specifications.py --apply
+python docs/scripts/sync-specifications.py --check
+```
+
+The same preview, apply, and check modes apply. Validate ADRs, use cases, functional requirements, and non-functional requirements before writing: required frontmatter, type and filename identity, unique IDs, lifecycle states, dates, revision and approval consistency, and existing relation targets. Replacement targets must have the same type, without self-references or cycles; a superseded document must have an approved successor. Plan IDs can be relation targets; full plan validation remains the responsibility of `sync-plans.py`.
+
+Regenerate the README in each specification type directory. Each index has separate tables for awaiting approval, drafts, accepted or approved documents, rejected documents, and superseded documents, in that order. Rows contain ID, linked title, revision, and update date, sorted by ID. Empty states retain their table headers. Frontmatter determines table membership; edit source documents and regenerate rather than editing index rows.
+
+Report all validation errors and abort before writes if any exist. Never move specification files, edit their contents, grant approval, or choose a status. Only the four type READMEs are generated; keep custom navigation in `docs/README.md`. Repeated synchronization without input changes produces no differences.
+
 ## Check documentation links
 
 ```sh
@@ -37,7 +51,7 @@ Support CommonMark inline links, reference-style links, images, and raw HTML `hr
 
 Prefer explicit file links and simple heading text. Wiki links, MDX expressions, generated-site routes, YAML metadata URLs, tool-specific `@path` imports, and renderer-specific attributes are outside the supported convention. Validate adapter imports separately when changing them. A link that still resolves to the wrong existing document cannot be detected automatically. Fragment checks on non-Markdown assets are outside scope.
 
-Collect all broken local links before exiting with a failure. Group console output by source file; include the source line or containing block's starting line, original destination, reason, and resolved path. When a missing destination contains a plan ID with one existing match, suggest the new relative destination without modifying the source.
+Collect all broken local links before exiting with a failure. Group console output by source file; include the source line or containing block's starting line, original destination, reason, and resolved path. When a missing destination contains a `PLAN`, `ADR`, `UC`, `FR`, or `NFR` ID with one existing filename match under `docs/`, suggest the new relative destination without modifying the source.
 
 The GitHub format adds file/line annotations for up to 50 errors. A report directory receives complete `links.json` and `links.md` reports; the job summary shows up to 30 abbreviated entries and points to the full artifact. Reports and console output retain every detected error even if GitHub limits visible annotations or summary size. JSON entries contain `source`, `line`, `destination`, `reason`, `resolved`, and `suggestion`.
 
@@ -45,8 +59,8 @@ Unresolved reference labels are plain text under CommonMark and are not treated 
 
 ## Repair workflow
 
-1. Update plan metadata according to the approved workflow.
-2. Preview synchronization; resolve metadata errors, then apply.
+1. Update document metadata according to its review workflow.
+2. Preview the relevant synchronization script; resolve metadata errors, then apply. Plan synchronization moves files and updates active indexes; specification synchronization only updates indexes.
 3. Run the link checker. Review both references to moved plans and relative links inside moved plans.
 4. Correct affected documents, using suggestions only after confirming the intended target.
 5. Rerun synchronization in check mode and the link checker until both pass.
@@ -55,7 +69,7 @@ CI checks are read-only. They report problems for an agent or human to fix; they
 
 ## CI and verification
 
-[The GitHub workflow](../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan synchronization, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
+[The GitHub workflow](../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan and specification synchronization, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
 
 The workflow intentionally has no path filter: deleting a file outside `docs/` can break a documentation link. It does not configure branch protection; making the check mandatory for merge is a separate repository setting.
 
