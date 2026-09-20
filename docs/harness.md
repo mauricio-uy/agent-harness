@@ -1,6 +1,6 @@
 # Harness Compatibility
 
-The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [planning](../.agents/skills/planning/SKILL.md), [TDD](../.agents/skills/tdd/SKILL.md), and [specification](../.agents/skills/specification/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
+The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [planning](../.agents/skills/planning/SKILL.md), [TDD](../.agents/skills/tdd/SKILL.md), [specification](../.agents/skills/specification/SKILL.md), and [research](../.agents/skills/research/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
 
 ## Planning: explicit human invocation
 
@@ -35,7 +35,20 @@ The agent may select specification when the human asks to document or revise arc
 | OpenCode | Automatic selection of the `specification` skill | [opencode.json](../opencode.json) allows this skill. |
 | Pi | Automatic selection or `/skill:specification` | The canonical skill retains default model invocation. |
 
+## Research: human-requested investigation
+
+The agent may select research when the human requests documented investigation or an evidence-based comparison. Routine lookups do not require a research record. The report distinguishes evidence from inference and is submitted for human review; approval does not adopt its recommendations or authorize implementation.
+
+| Agent | Entry point | Invocation control |
+| --- | --- | --- |
+| Codex | Automatic selection or `$research` | [agents/openai.yaml](../.agents/skills/research/agents/openai.yaml) allows implicit invocation. |
+| Claude Code | Automatic selection or `/research` | [Command adapter](../.claude/commands/research.md) retains default model invocation. |
+| OpenCode | Automatic selection of the `research` skill | [opencode.json](../opencode.json) allows this skill. |
+| Pi | Automatic selection or `/skill:research` | The canonical skill retains default model invocation. |
+
 ## Boundaries
+
+Each skill owns the rules, references, and templates for the artifacts it produces. Keep its references and templates inside its skill directory. Scripts stay in `docs/scripts/`, while generated project documents stay in `docs/`. Specification and research have separate synchronization commands; shared script helpers do not expand either command's ownership.
 
 These controls govern discovery and invocation; they do not prohibit reading a Markdown file through general file tools. The shared authorization rule and each skill's activation conditions still apply. OpenCode ignores unknown skill frontmatter fields, so its permission configuration is necessary. Its `/planning` command is the intended human entry point, not permission to load planning autonomously.
 

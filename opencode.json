@@ -4,7 +4,8 @@
     "skill": {
       "planning": "deny",
       "tdd": "allow",
-      "specification": "allow"
+      "specification": "allow",
+      "research": "allow"
     }
   }
 }
