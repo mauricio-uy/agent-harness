@@ -15,6 +15,7 @@ TYPES = {
     "use-case": ("UC", "use-cases", "approved"),
     "functional-requirement": ("FR", "requirements/functional", "approved"),
     "non-functional-requirement": ("NFR", "requirements/non-functional", "approved"),
+    "research": ("RES", "research", "approved"),
 }
 
 
@@ -43,7 +44,7 @@ class SpecificationTests(unittest.TestCase):
                               capture_output=True, text=True, encoding="utf-8")
 
     def test_preview_check_and_status_change_move_rows_only(self):
-        paths = [self.document(kind) for kind in TYPES]
+        paths = [self.document(kind) for kind in TYPES if kind != "research"]
         original = {p: p.read_bytes() for p in paths}
         result = self.run_script()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -124,8 +125,96 @@ class SpecificationTests(unittest.TestCase):
         result = self.run_script("--report-dir", str(report), script="check-doc-links.py")
         self.assertEqual(result.returncode, 1)
         errors = json.loads((report / "links.json").read_text())["errors"]
-        self.assertEqual(len(errors), 4)
+        self.assertEqual(len(errors), len(TYPES))
         self.assertTrue(all(error["suggestion"] for error in errors))
+
+    def run_research(self, *args):
+        return self.run_script(*args, script="sync-research.py")
+
+    def test_specification_sync_does_not_manage_unrelated_research(self):
+        self.document()
+        research = self.document("research", status="invalid")
+        index = research.parent / "README.md"
+        index.write_text("Keep research index unchanged", encoding="utf-8")
+        result = self.run_script("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(index.read_text(), "Keep research index unchanged")
+        self.assertEqual(self.run_script("--check").returncode, 0)
+
+    def test_research_sync_only_writes_its_index_and_ignores_unrelated_metadata(self):
+        research = self.document("research")
+        adr = self.document(status="invalid")
+        index = adr.parent / "README.md"
+        index.write_text("Keep specification index unchanged", encoding="utf-8")
+        result = self.run_research()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((research.parent / "README.md").exists())
+        result = self.run_research("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(index.read_text(), "Keep specification index unchanged")
+        self.assertFalse((self.root / "docs/use-cases").exists())
+        self.assertEqual(self.run_research("--check").returncode, 0)
+
+    def test_cross_skill_relations_verify_identity_without_owning_target_lifecycle(self):
+        research = self.document("research", related=["ADR-000001"])
+        self.document(status="invalid")
+        result = self.run_research("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        data = yaml.safe_load(research.read_text().split("---")[1])
+        data.update(status="invalid", related=[])
+        self.save(research, data)
+        self.document(related=["RES-000001"])
+        result = self.run_script("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_research_approval_moves_only_the_index_row(self):
+        path = self.document("research", related=["ADR-000001"])
+        self.document(related=["RES-000001"])
+        result = self.run_research("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        index_path = path.parent / "README.md"
+        self.assertTrue(index_path.is_file())
+        self.assertIn(path.name, index_path.read_text().split("## Draft")[1].split("## ")[0])
+        data = yaml.safe_load(path.read_text().split("---")[1])
+        data.update(status="approved", approval=dict(revision=1, date="2026-09-20"))
+        self.save(path, data)
+        original = path.read_bytes()
+        self.assertEqual(self.run_research("--check").returncode, 1)
+        self.assertEqual(self.run_research("--apply").returncode, 0)
+        index = index_path.read_text()
+        self.assertNotIn(path.name, index.split("## Draft")[1].split("## ")[0])
+        self.assertIn(path.name, index.split("## Approved")[1].split("## ")[0])
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(self.run_research("--check").returncode, 0)
+
+    def test_research_requires_current_approval_and_existing_relations(self):
+        self.document("research", revision=2, status="approved",
+                      approval=dict(revision=1, date="2026-09-20"), related=["FR-999999"])
+        result = self.run_research("--apply")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("current revision", result.stdout)
+        self.assertIn("FR-999999", result.stdout)
+        self.assertFalse(list(self.root.rglob("README.md")))
+
+    def test_superseded_research_requires_an_approved_research_successor(self):
+        old = self.document("research", status="superseded",
+                            approval=dict(revision=1, date="2026-09-20"))
+        replacement = self.document("research", number=2, supersedes=["RES-000001"])
+        result = self.run_research("--apply")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("approved replacement", result.stdout)
+        data = yaml.safe_load(replacement.read_text().split("---")[1])
+        data.update(status="approved", approval=dict(revision=1, date="2026-09-20"))
+        self.save(replacement, data)
+        result = self.run_research("--apply")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        index = (old.parent / "README.md").read_text()
+        self.assertIn(old.name, index.split("## Superseded")[1])
+        self.document()
+        self.document("research", number=3, supersedes=["ADR-000001"])
+        result = self.run_research("--check")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("same type", result.stdout)
 
 
 if __name__ == "__main__":
