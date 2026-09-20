@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   docs-integrity:
-    name: Plans and documentation links
+    name: Plans, specifications, and documentation links
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -39,6 +39,10 @@ jobs:
       - name: Validate plans and generated indexes
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python docs/scripts/sync-plans.py --check
+
+      - name: Validate specifications and state indexes
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: python docs/scripts/sync-specifications.py --check
 
       - name: Check all documentation links
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
