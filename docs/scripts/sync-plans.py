@@ -3,14 +3,14 @@
 
 import argparse
 from collections import defaultdict
-from datetime import date
-import html
 from pathlib import Path
 import re
 import sys
 from urllib.parse import quote
 
 import yaml
+
+from document_metadata import read_metadata, iso_date, positive_int, table_text
 
 ACTIVE = {
     "draft": "Draft",
@@ -22,54 +22,6 @@ STATES = set(ACTIVE) | {"completed", "cancelled", "superseded"}
 APPROVED_STATES = {"approved", "in-progress", "completed"}
 PLAN_ID = re.compile(r"PLAN-[0-9]{6}\Z")
 FILENAME = re.compile(r"(PLAN-[0-9]{6})-[a-z0-9]+(?:-[a-z0-9]+)*\.md\Z")
-
-
-class UniqueKeyLoader(yaml.SafeLoader):
-    """Reject ambiguous YAML instead of silently using the last duplicate key."""
-
-
-def unique_mapping(loader, node, deep=False):
-    mapping = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        if not isinstance(key, str):
-            raise ValueError("frontmatter keys must be strings")
-        if key in mapping:
-            raise ValueError(f"duplicate YAML key: {key}")
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-    return mapping
-
-
-UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, unique_mapping)
-
-
-def read_metadata(path):
-    lines = path.read_text(encoding="utf-8-sig").splitlines()
-    if not lines or lines[0] != "---":
-        raise ValueError("missing YAML frontmatter")
-    try:
-        end = lines.index("---", 1)
-    except ValueError:
-        raise ValueError("unclosed YAML frontmatter") from None
-    data = yaml.load("\n".join(lines[1:end]), Loader=UniqueKeyLoader)
-    if not isinstance(data, dict):
-        raise ValueError("frontmatter must be a mapping")
-    return data
-
-
-def iso_date(value):
-    if type(value) is date:
-        return value
-    if isinstance(value, str) and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
-        try:
-            return date.fromisoformat(value)
-        except ValueError:
-            pass
-    return None
-
-
-def positive_int(value):
-    return type(value) is int and value > 0
 
 
 def validate_metadata(path, data):
@@ -126,12 +78,6 @@ def validate_metadata(path, data):
         elif replacement == identifier:
             errors.append("superseded_by must not refer to the same plan")
     return errors
-
-
-def table_text(value):
-    # Escape Markdown and HTML syntax so a title cannot create links or columns.
-    value = html.escape(str(value), quote=False)
-    return re.sub(r"([\\`*_{}\[\]()#+.!|~-])", r"\\\1", value)
 
 
 def index_content(state, plans):
