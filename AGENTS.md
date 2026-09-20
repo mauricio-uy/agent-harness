@@ -20,6 +20,5 @@ These rules apply to all agents and subagents working on this project.
 
 ## Context and documentation
 
-- Write project documentation and harness artifacts in English. Communicate with the human in their preferred language.
 - Keep shared rules here and task-specific procedures in skills. Read supporting templates and references only when needed; avoid duplicating instructions.
 - Keep plans and relevant documentation aligned with approved changes. Create research records, ADRs, and runbooks when the task warrants them.
