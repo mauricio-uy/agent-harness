@@ -1,6 +1,6 @@
 # Harness Compatibility
 
-The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [planning](../.agents/skills/planning/SKILL.md) and [TDD](../.agents/skills/tdd/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
+The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [planning](../.agents/skills/planning/SKILL.md), [TDD](../.agents/skills/tdd/SKILL.md), and [specification](../.agents/skills/specification/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
 
 ## Planning: explicit human invocation
 
@@ -23,6 +23,17 @@ The agent may select TDD when the human asks to implement or resume an approved 
 | Claude Code | Automatic selection or `/tdd` | [Command adapter](../.claude/commands/tdd.md) retains default model invocation. |
 | OpenCode | Automatic selection of the `tdd` skill | [opencode.json](../opencode.json) allows this skill while keeping planning denied. |
 | Pi | Automatic selection or `/skill:tdd` | The canonical skill retains default model invocation. |
+
+## Specification: human-requested documentation
+
+The agent may select specification when the human asks to document or revise architectural decisions, use cases, or requirements. It selects the relevant template and submits a draft for review. Document approval does not authorize implementation.
+
+| Agent | Entry point | Invocation control |
+| --- | --- | --- |
+| Codex | Automatic selection or `$specification` | [agents/openai.yaml](../.agents/skills/specification/agents/openai.yaml) allows implicit invocation. |
+| Claude Code | Automatic selection or `/specification` | [Command adapter](../.claude/commands/specification.md) retains default model invocation. |
+| OpenCode | Automatic selection of the `specification` skill | [opencode.json](../opencode.json) allows this skill. |
+| Pi | Automatic selection or `/skill:specification` | The canonical skill retains default model invocation. |
 
 ## Boundaries
 

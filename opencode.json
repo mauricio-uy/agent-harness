@@ -3,7 +3,8 @@
   "permission": {
     "skill": {
       "planning": "deny",
-      "tdd": "allow"
+      "tdd": "allow",
+      "specification": "allow"
     }
   }
 }
