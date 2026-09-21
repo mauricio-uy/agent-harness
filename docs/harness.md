@@ -57,6 +57,14 @@ The agent may select `write-runbook` when the human requests a reusable operatio
 | OpenCode | Automatic selection of the `write-runbook` skill | [opencode.json](../opencode.json) allows this skill. |
 | Pi | Automatic selection or `/skill:write-runbook` | The canonical skill retains default model invocation. |
 
+## Git hook and repository setup
+
+The shared [pre-commit hook](../.githooks/pre-commit) works at the Git boundary, independently of the agent. It validates staged documentation metadata, indexes, and local links without modifying files. Follow the [local setup instructions](../README.md#local-setup-and-checks) for dependencies and per-clone installation. No agent lifecycle hooks are configured.
+
+[GitHub CI](../.github/workflows/docs-integrity.yml) runs the documentation checks independently and exercises the hook. Neither hooks nor metadata checks authenticate approval or enforce human consultation; those remain workflow responsibilities. See [script behavior and limits](scripts/README.md#pre-commit-check).
+
+[.gitattributes](../.gitattributes) sets LF line endings only for the documentation tools' Python files, dependency list, and pre-commit hook; Python diff behavior applies only within `docs/scripts/`. [.gitignore](../.gitignore) excludes only that directory's Python environment and bytecode, plus generated link reports. Documentation tooling does not prescribe the runtime, dependency setup, or Git conventions for other files in the project using the harness.
+
 ## Boundaries
 
 Each skill owns the rules, references, and templates for the artifacts it produces. Keep its references and templates inside its skill directory. Scripts stay in `docs/scripts/`, while generated project documents stay in `docs/`. Specification, research, and runbooks have separate synchronization commands; shared script helpers do not expand their ownership.

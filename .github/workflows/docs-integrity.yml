@@ -40,6 +40,10 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python docs/scripts/sync-plans.py --check
 
+      - name: Exercise staged documentation hook
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: git -c core.hooksPath=.githooks hook run pre-commit
+
       - name: Validate specifications and state indexes
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python docs/scripts/sync-specifications.py --check
