@@ -48,7 +48,21 @@ python docs/scripts/sync-research.py --check
 
 Preview by default, apply explicitly, or check without writing. Validate research identity, metadata, review state, approval consistency, relations, and replacement chains. Generate only `docs/research/README.md`, grouping records by status. Never move records, edit their contents, or generate specification or plan indexes. Validation errors prevent all writes.
 
-The specification and research commands share implementation helpers but have separate ownership scopes. For external relations, inspect only referenced document identities and report missing or ambiguous targets. Do not validate an external record's lifecycle or rewrite it; its owning command handles that. Unrelated external metadata errors do not block synchronization. The link checker covers references across all document types.
+## Synchronize runbooks
+
+```sh
+python docs/scripts/sync-runbooks.py
+python docs/scripts/sync-runbooks.py --apply
+python docs/scripts/sync-runbooks.py --check
+```
+
+Preview by default, apply explicitly, or check without writing. Validate runbook identity, review state, owner, approval, operational validation metadata, relations, and replacement chains. Generate only `docs/runbooks/README.md`, including the retired section and the validation state and date columns. Keep record paths and contents unchanged. Metadata errors prevent all writes; synchronization never grants approval, changes validation status, or executes a procedure.
+
+Approval and operational validation are independent. Validate the recorded revision, date, and environment against the declared validation state; preserve stale evidence. These checks do not verify the truth or coverage of execution evidence, detect infrastructure changes, or establish operational readiness. The human review workflow remains responsible for these judgments.
+
+## Ownership boundaries
+
+The specification, research, and runbook commands share implementation helpers but have separate ownership scopes. Runbook-specific rules and columns live in `sync-runbooks.py`. For external relations, inspect only referenced document identities and report missing or ambiguous targets, including `RUN` IDs. Do not validate an external record's lifecycle or rewrite it; its owning command handles that. Unrelated external metadata errors do not block synchronization. The link checker covers references across all document types.
 
 ## Check documentation links
 
@@ -63,7 +77,7 @@ Support CommonMark inline links, reference-style links, images, and raw HTML `hr
 
 Prefer explicit file links and simple heading text. Wiki links, MDX expressions, generated-site routes, YAML metadata URLs, tool-specific `@path` imports, and renderer-specific attributes are outside the supported convention. Validate adapter imports separately when changing them. A link that still resolves to the wrong existing document cannot be detected automatically. Fragment checks on non-Markdown assets are outside scope.
 
-Collect all broken local links before exiting with a failure. Group console output by source file; include the source line or containing block's starting line, original destination, reason, and resolved path. When a missing destination contains a `PLAN`, `ADR`, `UC`, `FR`, `NFR`, or `RES` ID with one existing filename match under `docs/`, suggest the new relative destination without modifying the source.
+Collect all broken local links before exiting with a failure. Group console output by source file; include the source line or containing block's starting line, original destination, reason, and resolved path. When a missing destination contains a `PLAN`, `ADR`, `UC`, `FR`, `NFR`, `RES`, or `RUN` ID with one existing filename match under `docs/`, suggest the new relative destination without modifying the source.
 
 The GitHub format adds file/line annotations for up to 50 errors. A report directory receives complete `links.json` and `links.md` reports; the job summary shows up to 30 abbreviated entries and points to the full artifact. Reports and console output retain every detected error even if GitHub limits visible annotations or summary size. JSON entries contain `source`, `line`, `destination`, `reason`, `resolved`, and `suggestion`.
 
@@ -72,7 +86,7 @@ Unresolved reference labels are plain text under CommonMark and are not treated 
 ## Repair workflow
 
 1. Update document metadata according to its review workflow.
-2. Preview the relevant synchronization script; resolve metadata errors, then apply. Plan synchronization moves files and updates active indexes; specification and research synchronization each update only their own indexes.
+2. Preview the relevant synchronization script; resolve metadata errors, then apply. Plan synchronization moves files and updates active indexes; specification, research, and runbook synchronization each update only their own indexes.
 3. Run the link checker. Review both references to moved plans and relative links inside moved plans.
 4. Correct affected documents, using suggestions only after confirming the intended target.
 5. Rerun synchronization in check mode and the link checker until both pass.
@@ -81,7 +95,7 @@ CI checks are read-only. They report problems for an agent or human to fix; they
 
 ## CI and verification
 
-[The GitHub workflow](../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan, specification, and research synchronization, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
+[The GitHub workflow](../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan, specification, research, and runbook synchronization independently, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
 
 The workflow intentionally has no path filter: deleting a file outside `docs/` can break a documentation link. It does not configure branch protection; making the check mandatory for merge is a separate repository setting.
 

@@ -48,7 +48,7 @@ The agent may select research when the human requests documented investigation o
 
 ## Runbooks: human-requested operational documentation
 
-The agent may select runbooks when the human requests a reusable operational or incident response procedure. This skill drafts and maintains the document; it does not execute the operation. Document approval and operational validation are separate records. The runbook index is maintained by the skill until a dedicated synchronizer is implemented.
+The agent may select runbooks when the human requests a reusable operational or incident response procedure. This skill drafts and maintains the document; it does not execute the operation. Document approval and operational validation are separate records. Its dedicated synchronization command generates only the runbook index.
 
 | Agent | Entry point | Invocation control |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ The agent may select runbooks when the human requests a reusable operational or 
 
 ## Boundaries
 
-Each skill owns the rules, references, and templates for the artifacts it produces. Keep its references and templates inside its skill directory. Scripts stay in `docs/scripts/`, while generated project documents stay in `docs/`. Specification and research have separate synchronization commands; shared script helpers do not expand either command's ownership.
+Each skill owns the rules, references, and templates for the artifacts it produces. Keep its references and templates inside its skill directory. Scripts stay in `docs/scripts/`, while generated project documents stay in `docs/`. Specification, research, and runbooks have separate synchronization commands; shared script helpers do not expand their ownership.
 
 These controls govern discovery and invocation; they do not prohibit reading a Markdown file through general file tools. The shared authorization rule and each skill's activation conditions still apply. OpenCode ignores unknown skill frontmatter fields, so its permission configuration is necessary. Its `/planning` command is the intended human entry point, not permission to load planning autonomously.
 
