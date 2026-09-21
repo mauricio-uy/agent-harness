@@ -48,6 +48,10 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python docs/scripts/sync-research.py --check
 
+      - name: Validate runbooks and their state index
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: python docs/scripts/sync-runbooks.py --check
+
       - name: Check all documentation links
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: python docs/scripts/check-doc-links.py --format github --report-dir docs-link-report
