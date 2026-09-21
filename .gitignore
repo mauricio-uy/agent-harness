@@ -1,4 +1,7 @@
-__pycache__/
-*.py[cod]
-.venv/
+# Documentation tooling only
+/docs/scripts/**/__pycache__/
+/docs/scripts/**/*.py[cod]
+/docs/scripts/.venv/
+
+# Generated validation reports
 /docs-link-report/

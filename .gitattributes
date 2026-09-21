@@ -1,0 +1,4 @@
+# Conventions for documentation tooling only.
+/.githooks/pre-commit text eol=lf
+/docs/scripts/**/*.py text eol=lf diff=python
+/docs/scripts/requirements.txt text eol=lf
