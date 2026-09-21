@@ -1,10 +1,10 @@
 ---
-name: planning
+name: write-plan
 description: Create or revise implementation plans when explicitly invoked by the human.
 disable-model-invocation: true
 ---
 
-# Planning
+# Write Plan
 
 Run only after explicit human invocation. A suggestion or an agent's decision to plan is not authorization.
 

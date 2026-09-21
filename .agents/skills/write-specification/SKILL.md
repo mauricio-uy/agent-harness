@@ -1,9 +1,9 @@
 ---
-name: specification
+name: write-specification
 description: Draft or revise ADRs, use cases, functional requirements, or non-functional requirements when the human asks to document a discussion or specification for review.
 ---
 
-# Specification
+# Write Specification
 
 1. Identify the requested outcome from the discussion and relevant existing documents. Use [the document reference](references/document-format.md) to choose the type; clarify ambiguity with the human. Create multiple linked documents only when the request warrants separate artifacts.
 2. Open only the selected type's index and template. Manage its directory and index as defined in the reference. Search for existing IDs and overlapping documents before allocating an ID or revising a document. Preserve confirmed facts, distinguish proposals from decisions, and ask about missing information that affects meaning or acceptance.
@@ -12,4 +12,4 @@ description: Draft or revise ADRs, use cases, functional requirements, or non-fu
 5. Record approval only after the human explicitly approves the identified revision, using the type's approval state. Silence, a request to draft, or approval of another document is not approval. Document approval does not authorize implementation.
 6. Validate metadata and regenerate the type indexes with `sync-specifications.py`; check local links and repair reported references. Follow [the script commands](../../../docs/scripts/README.md) for preview, apply, and read-only checks. Edit document frontmatter, not generated rows.
 
-Deliver links to the drafted documents, their states, and the decisions needed from the human. Do not load unrelated templates or invoke planning or implementation as a side effect.
+Deliver links to the drafted documents, their states, and the decisions needed from the human. Do not load unrelated templates or invoke `write-plan` or `implement-plan` as a side effect.

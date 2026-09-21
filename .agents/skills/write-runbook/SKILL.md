@@ -1,9 +1,9 @@
 ---
-name: runbooks
+name: write-runbook
 description: Draft or revise operational runbooks when the human asks to document a repeatable operation or incident response procedure for review. Does not execute the procedure.
 ---
 
-# Runbooks
+# Write Runbook
 
 1. Identify the operation or incident, intended operator, target environment, and known procedure. Search existing runbooks before creating a record. Clarify missing information that changes applicability, permissions, or recovery.
 2. Use [the runbook reference](references/runbook-format.md) and its template. Base steps on relevant project artifacts, existing procedures, and supplied evidence. Do not invent commands, resource names, thresholds, contacts, or recovery guarantees; expose unresolved details in a draft.
@@ -12,4 +12,4 @@ description: Draft or revise operational runbooks when the human asks to documen
 5. Present the identified revision, validation coverage, limitations, and open decisions for human review. Record approval only after explicit approval of that revision; document approval does not authorize execution.
 6. Use `sync-runbooks.py` to validate runbook metadata and regenerate only its index, then check links. Follow [the documentation commands](../../../docs/scripts/README.md#synchronize-runbooks) for preview, apply, and read-only checks. Report references requiring changes outside this skill's scope.
 
-Deliver links to the records, their review and validation states, and remaining decisions. Read related documents selectively; do not invoke planning, implementation, or operational execution as a side effect.
+Deliver links to the records, their review and validation states, and remaining decisions. Read related documents selectively; do not invoke `write-plan`, `implement-plan`, or operational execution as a side effect.

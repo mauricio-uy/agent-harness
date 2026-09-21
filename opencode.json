@@ -2,11 +2,11 @@
   "$schema": "https://opencode.ai/config.json",
   "permission": {
     "skill": {
-      "planning": "deny",
-      "tdd": "allow",
-      "specification": "allow",
-      "research": "allow",
-      "runbooks": "allow"
+      "write-plan": "deny",
+      "implement-plan": "allow",
+      "write-specification": "allow",
+      "write-research-report": "allow",
+      "write-runbook": "allow"
     }
   }
 }
