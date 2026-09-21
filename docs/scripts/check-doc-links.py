@@ -17,7 +17,7 @@ from urllib.parse import quote, unquote, urlsplit
 from markdown_it import MarkdownIt
 
 MARKDOWN = MarkdownIt("commonmark").enable("table").enable("strikethrough")
-DOCUMENT_ID = re.compile(r"(?<![A-Za-z0-9])(?:PLAN|ADR|UC|FR|NFR|RES)-[0-9]{6}(?![0-9])")
+DOCUMENT_ID = re.compile(r"(?<![A-Za-z0-9])(?:PLAN|ADR|UC|FR|NFR|RES|RUN)-[0-9]{6}(?![0-9])")
 
 
 @dataclass
