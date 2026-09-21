@@ -115,7 +115,7 @@ def sources(root):
     paths = set()
     for directory in ("docs", ".agents/skills", ".claude/commands", ".opencode/commands"):
         paths.update((root / directory).rglob("*.md"))
-    for name in ("AGENTS.md", "CLAUDE.md"):
+    for name in ("README.md", "AGENTS.md", "CLAUDE.md"):
         if (root / name).is_file():
             paths.add(root / name)
     return sorted(paths)

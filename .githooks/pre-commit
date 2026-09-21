@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+for python in python python3; do
+    if command -v "$python" >/dev/null 2>&1 && "$python" -c 'import sys; sys.exit(sys.version_info < (3, 13))' 2>/dev/null; then
+        exec "$python" docs/scripts/check-staged-docs.py
+    fi
+done
+if command -v py >/dev/null 2>&1 && py -3 -c 'import sys; sys.exit(sys.version_info < (3, 13))' 2>/dev/null; then
+    exec py -3 docs/scripts/check-staged-docs.py
+fi
+echo 'Documentation checks require Python 3.13 or newer. Activate the project virtual environment.' >&2
+exit 1
