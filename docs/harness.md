@@ -1,6 +1,6 @@
 # Harness Compatibility
 
-The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [planning](../.agents/skills/planning/SKILL.md), [TDD](../.agents/skills/tdd/SKILL.md), [specification](../.agents/skills/specification/SKILL.md), and [research](../.agents/skills/research/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
+The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [planning](../.agents/skills/planning/SKILL.md), [TDD](../.agents/skills/tdd/SKILL.md), [specification](../.agents/skills/specification/SKILL.md), [research](../.agents/skills/research/SKILL.md), and [runbooks](../.agents/skills/runbooks/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
 
 ## Planning: explicit human invocation
 
@@ -45,6 +45,17 @@ The agent may select research when the human requests documented investigation o
 | Claude Code | Automatic selection or `/research` | [Command adapter](../.claude/commands/research.md) retains default model invocation. |
 | OpenCode | Automatic selection of the `research` skill | [opencode.json](../opencode.json) allows this skill. |
 | Pi | Automatic selection or `/skill:research` | The canonical skill retains default model invocation. |
+
+## Runbooks: human-requested operational documentation
+
+The agent may select runbooks when the human requests a reusable operational or incident response procedure. This skill drafts and maintains the document; it does not execute the operation. Document approval and operational validation are separate records. The runbook index is maintained by the skill until a dedicated synchronizer is implemented.
+
+| Agent | Entry point | Invocation control |
+| --- | --- | --- |
+| Codex | Automatic selection or `$runbooks` | [agents/openai.yaml](../.agents/skills/runbooks/agents/openai.yaml) allows implicit invocation. |
+| Claude Code | Automatic selection or `/runbooks` | [Command adapter](../.claude/commands/runbooks.md) retains default model invocation. |
+| OpenCode | Automatic selection of the `runbooks` skill | [opencode.json](../opencode.json) allows this skill. |
+| Pi | Automatic selection or `/skill:runbooks` | The canonical skill retains default model invocation. |
 
 ## Boundaries
 

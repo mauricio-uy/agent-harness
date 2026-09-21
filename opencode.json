@@ -5,7 +5,8 @@
       "planning": "deny",
       "tdd": "allow",
       "specification": "allow",
-      "research": "allow"
+      "research": "allow",
+      "runbooks": "allow"
     }
   }
 }
