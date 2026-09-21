@@ -24,7 +24,7 @@ An approval revision is positive and cannot exceed the current revision; its dat
 
 Maintain `docs/research/README.md` with separate tables for `awaiting-approval`, `draft`, `approved`, `rejected`, and `superseded`, in that order. Each table contains `ID`, linked `Document` title, `Revision`, and `Updated`, sorted by ID. Each record appears once, according to its frontmatter. Empty sections retain table headers and an empty-state message.
 
-Regenerate the research index after metadata changes; do not edit generated rows. Read only relevant sections or search by ID. The index links back to `docs/README.md` and contains no skill instructions.
+Regenerate the research index after metadata changes; do not edit generated rows. Read only relevant sections or search by ID. The index lists documents within its own directory and contains no skill instructions.
 
 ## Evidence and conclusions
 
