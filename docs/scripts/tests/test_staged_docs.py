@@ -21,6 +21,7 @@ class StagedDocumentationTests(unittest.TestCase):
             (self.root / "docs" / folder).mkdir(parents=True)
         shutil.copytree(SCRIPTS, self.root / "docs/scripts", ignore=shutil.ignore_patterns("__pycache__", "tests"))
         (self.root / "docs/scripts/README.md").unlink()
+        (self.root / "docs/scripts/guide.md").unlink()
         for kind in ("plans", "specifications", "research", "runbooks"):
             result = subprocess.run([sys.executable, str(SCRIPTS / f"sync-{kind}.py"), "--root", str(self.root), "--apply"], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
