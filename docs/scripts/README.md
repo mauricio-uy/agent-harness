@@ -1,12 +1,34 @@
 # Documentation Scripts
 
-Requires Python 3.13 with the dependencies in [requirements.txt](requirements.txt). Install them in your project's virtual environment:
+## Environment setup
+
+Only these documentation tools require Python 3.13 or newer and the dependencies in [requirements.txt](requirements.txt). Create a dedicated environment from the repository root:
+
+```sh
+python -m venv docs/scripts/.venv
+```
+
+Activate it with `source docs/scripts/.venv/bin/activate` on POSIX shells or `docs/scripts/.venv/Scripts/Activate.ps1` in PowerShell, then install the dependencies:
 
 ```sh
 python -m pip install -r docs/scripts/requirements.txt
 ```
 
-Run commands from the repository root. All scripts accept `--root PATH` for another checkout and default to the repository containing the script.
+This environment is separate from the project's runtime and dependencies. The harness's Python ignore rules apply only within `docs/scripts/`.
+
+Run commands from the repository root. All command-line scripts accept `--root PATH` for another checkout and default to the repository containing the script.
+
+## Pre-commit check
+
+Install the versioned hook using the [root setup instructions](../../README.md#local-setup-and-checks). To run its validator directly:
+
+```sh
+python docs/scripts/check-staged-docs.py
+```
+
+Export the complete Git index to a temporary directory and run all four synchronization commands with `--check`, followed by the link checker. Use the staged versions of those validators and preserve Git's alternate index when present. Run every check even if an earlier one fails; return failure if any check fails. No apply mode is provided. Temporary files are removed afterward; the working tree and index are not changed.
+
+The hook uses Python 3.13 or newer from `python`, `python3`, or the Windows `py -3` launcher. Activate the environment containing the dependencies before committing. Validators must be staged, and links to untracked files fail until those targets are staged. The hook does not install dependencies, grant approval, or repair documents. Git hooks are local and bypassable; CI remains an independent check.
 
 ## Synchronize plans
 
@@ -71,7 +93,7 @@ python docs/scripts/check-doc-links.py
 python docs/scripts/check-doc-links.py --format github --report-dir docs-link-report
 ```
 
-Scan every Markdown source under `docs/`, `.agents/skills/`, `.claude/commands/`, and `.opencode/commands/`, plus the root `AGENTS.md` and `CLAUDE.md`. New skills are included automatically. Resolve relative destinations from the source document, and leading-slash destinations from the repository root.
+Scan every Markdown source under `docs/`, `.agents/skills/`, `.claude/commands/`, and `.opencode/commands/`, plus the root `README.md`, `AGENTS.md`, and `CLAUDE.md`. New skills are included automatically. Resolve relative destinations from the source document, and leading-slash destinations from the repository root.
 
 Support CommonMark inline links, reference-style links, images, and raw HTML `href`/`src` attributes. Check local target existence and Markdown heading fragments, including duplicate headings. Ignore links inside fenced code, inline code, HTML comments, and YAML frontmatter. External URLs are outside this local integrity check and are not fetched.
 
@@ -97,7 +119,7 @@ CI checks are read-only. They report problems for an agent or human to fix; they
 
 [The GitHub workflow](../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan, specification, research, and runbook synchronization independently, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
 
-The workflow intentionally has no path filter: deleting a file outside `docs/` can break a documentation link. It does not configure branch protection; making the check mandatory for merge is a separate repository setting.
+The workflow also invokes the pre-commit hook against the checked-out index. It intentionally has no path filter: deleting a file outside `docs/` can break a documentation link. It does not configure branch protection; making the check mandatory for merge is a separate repository setting.
 
 Run script tests locally with:
 
