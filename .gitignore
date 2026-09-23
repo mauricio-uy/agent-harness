@@ -5,3 +5,6 @@
 
 # Generated validation reports
 /docs-link-report/
+
+# Local instructions for developing the harness itself; the installed AGENTS.md lives in template/
+/AGENTS.md
