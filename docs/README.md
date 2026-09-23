@@ -10,4 +10,4 @@
 | Operational runbooks | [Runbooks](runbooks/README.md) |
 | Implementation plans | [Plans](plans/README.md) |
 
-`overview.md` summarizes the project and `glossary.md` defines its vocabulary.
+The [project overview](overview.md) summarizes the project and the [glossary](glossary.md) defines its vocabulary.
