@@ -1,7 +1,3 @@
-# Conventions for scripts that must run as POSIX shell scripts, and documentation tooling.
-/.githooks/pre-commit text eol=lf
-/.agents/harness/scripts/**/*.py text eol=lf diff=python
-/.agents/harness/scripts/requirements.txt text eol=lf
-
-# Executed directly as a POSIX shell script.
-/.agents/harness/scripts/setup-claude-skills.sh text eol=lf
+# Go sources and scripts executed directly as POSIX shell scripts.
+*.go text eol=lf
+/template/.githooks/pre-commit text eol=lf

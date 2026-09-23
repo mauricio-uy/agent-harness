@@ -1,10 +1,7 @@
-# Documentation tooling only
-/.agents/harness/scripts/**/__pycache__/
-/.agents/harness/scripts/**/*.py[cod]
-/.agents/harness/scripts/.venv/
-
-# Generated locally by .agents/harness/scripts/setup-claude-skills.*; see .agents/harness/README.md
-/.claude/skills
+# Build output
+/dist/
+/harness
+/harness.exe
 
 # Generated validation reports
 /docs-link-report/
