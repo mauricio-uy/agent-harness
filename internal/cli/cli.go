@@ -2,7 +2,6 @@
 package cli
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,12 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
+
+	"github.com/charmbracelet/colorprofile"
 
 	harness "github.com/mauricio-uy/agent-harness"
 	"github.com/mauricio-uy/agent-harness/internal/docs"
 	"github.com/mauricio-uy/agent-harness/internal/install"
+	"github.com/mauricio-uy/agent-harness/internal/ui"
 )
 
 // Version is set at build time.
@@ -38,10 +39,9 @@ Clients: claude-code, codex, opencode, pi; "none" installs only the base.
 
 // IO carries the streams a command uses, so tests can drive it.
 type IO struct {
-	In       io.Reader
 	Out, Err io.Writer
-	// Interactive reports whether In is a terminal that can answer prompts.
-	Interactive bool
+	// SelectClients prompts for clients; nil when there is no terminal to prompt.
+	SelectClients func() ([]string, error)
 }
 
 // Run executes the command in args and returns the process exit status.
@@ -51,13 +51,19 @@ func Run(args []string, streams IO) int {
 		return 2
 	}
 	command, rest := args[0], args[1:]
+	printer := ui.NewPrinter(colorprofile.NewWriter(streams.Out, os.Environ()))
+	defer printer.Flush()
+	streams.Out = printer
+	errOut := colorprofile.NewWriter(streams.Err, os.Environ())
 	var err error
 	status := 0
 	switch command {
 	case "init":
 		err = runInit(rest, streams)
+		summarize(printer, err)
 	case "link":
 		err = runLink(rest, streams)
+		summarize(printer, err)
 	case "sync":
 		status, err = runSync(rest, streams)
 	case "check":
@@ -74,10 +80,24 @@ func Run(args []string, streams IO) int {
 		return 0
 	}
 	if err != nil {
-		fmt.Fprintf(streams.Err, "harness %s: %v\n", command, err)
+		fmt.Fprintln(errOut, ui.Failure(fmt.Sprintf("harness %s: %v", command, err)))
 		return 1
 	}
 	return status
+}
+
+// summarize closes an init or link run with the counted actions.
+func summarize(printer *ui.Printer, err error) {
+	nothingDone := printer.Summary() == "no changes"
+	if errors.Is(err, ui.ErrCancelled) || errors.Is(err, flag.ErrHelp) || (err != nil && nothingDone) {
+		return
+	}
+	fmt.Fprintln(printer)
+	if err != nil {
+		fmt.Fprintln(printer, ui.Warning(printer.Summary()))
+		return
+	}
+	fmt.Fprintln(printer, ui.Success(printer.Summary()))
 }
 
 func newFlags(name string, streams IO) (*flag.FlagSet, *string) {
@@ -112,8 +132,8 @@ func runInit(args []string, streams IO) error {
 	switch {
 	case isFlagSet(flags, "clients"):
 		clients, err = install.ParseClients(*clientList)
-	case streams.Interactive:
-		clients, err = promptClients(streams)
+	case streams.SelectClients != nil:
+		clients, err = streams.SelectClients()
 	default:
 		fmt.Fprintln(streams.Out, "No terminal to prompt; installing without clients. Pass --clients to choose them.")
 	}
@@ -128,29 +148,6 @@ func isFlagSet(flags *flag.FlagSet, name string) bool {
 	set := false
 	flags.Visit(func(f *flag.Flag) { set = set || f.Name == name })
 	return set
-}
-
-func promptClients(streams IO) ([]string, error) {
-	fmt.Fprintln(streams.Out, "The harness is always installed in .agents/ with docs/. Select the clients to configure:")
-	for i, c := range install.Clients {
-		fmt.Fprintf(streams.Out, "  %d) %-12s %s\n", i+1, c.Name, c.Summary)
-	}
-	fmt.Fprint(streams.Out, "Numbers separated by commas, or Enter for none: ")
-	line, err := bufio.NewReader(streams.In).ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-	var ids []string
-	for _, item := range strings.FieldsFunc(line, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\r' }) {
-		number, err := strconv.Atoi(item)
-		if err != nil || number < 1 || number > len(install.Clients) {
-			return nil, fmt.Errorf("invalid choice %q", item)
-		}
-		if id := install.Clients[number-1].ID; !slices.Contains(ids, id) {
-			ids = append(ids, id)
-		}
-	}
-	return ids, nil
 }
 
 func runLink(args []string, streams IO) error {

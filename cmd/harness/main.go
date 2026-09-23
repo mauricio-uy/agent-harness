@@ -5,10 +5,18 @@ import (
 	"os"
 
 	"github.com/mauricio-uy/agent-harness/internal/cli"
+	"github.com/mauricio-uy/agent-harness/internal/ui"
 )
 
 func main() {
-	info, err := os.Stdin.Stat()
-	interactive := err == nil && info.Mode()&os.ModeCharDevice != 0
-	os.Exit(cli.Run(os.Args[1:], cli.IO{In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Interactive: interactive}))
+	streams := cli.IO{Out: os.Stdout, Err: os.Stderr}
+	if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+		streams.SelectClients = ui.SelectClients
+	}
+	os.Exit(cli.Run(os.Args[1:], streams))
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
