@@ -82,6 +82,8 @@ The shared [pre-commit hook](../.githooks/pre-commit) works at the Git boundary,
 
 Each skill owns the rules, references, and templates for the artifacts it produces. Keep its references and templates inside its skill directory. Scripts stay in `docs/scripts/`, while generated project documents stay in `docs/`. Specification, research, and runbooks have separate synchronization commands; shared script helpers do not expand their ownership.
 
+[.agents/shared/](../.agents/shared/README.md) is the one exception: it holds formats and templates for `docs/overview.md` and `docs/glossary.md`, which several skills read and maintain rather than any single skill owning end to end. Those skills link to it for format; their own steps define when to act, per [Project memory](../AGENTS.md#project-memory).
+
 These controls govern discovery and invocation; they do not prohibit reading a Markdown file through general file tools. The shared authorization rule and each skill's activation conditions still apply. OpenCode ignores unknown skill frontmatter fields, so its permission configuration is necessary. Its `/write-plan` command is the intended human entry point, not permission to load `write-plan` autonomously.
 
 Use normal project discovery with the repository trusted where required, and keep Pi skill commands enabled. User, managed, or per-agent overrides can change the effective configuration. Native plan modes are separate from this repository's planning workflow and do not record human approval for it.
