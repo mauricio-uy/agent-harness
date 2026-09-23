@@ -10,4 +10,4 @@
 | Operational runbooks | [Runbooks](runbooks/README.md) |
 | Implementation plans | [Plans](plans/README.md) |
 
-When present, `overview.md` summarizes the project and `glossary.md` defines its vocabulary; their formats live in [shared references](../.agents/shared/README.md).
+When present, `overview.md` summarizes the project and `glossary.md` defines its vocabulary.
