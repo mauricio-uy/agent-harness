@@ -16,7 +16,7 @@ Use these sections, in order. Keep every section; when one does not apply yet, l
 | --- | --- |
 | Purpose | What the project does and for whom, in a few sentences. |
 | Structure | High-level layout: main directories or components and their responsibility. |
-| Where to look | Links to `docs/README.md`, which indexes decisions, requirements, research, runbooks, and plans, and to `docs/glossary.md` when present. |
+| Where to look | Links to `docs/README.md`, which indexes decisions, requirements, research, runbooks, and plans, and to `docs/glossary.md`. |
 
 ## Maintenance rule
 
@@ -26,4 +26,4 @@ Update only the section affected by the change. Reflect the resulting state of t
 
 The overview always lives at `docs/overview.md`. The path is fixed because skills and `AGENTS.md` read it by that path; do not move or rename it.
 
-Create it from [the template](../assets/overview-template.md) the first time it is needed. Fill in what is currently known and remove the template comments; leave the rest for later updates.
+It is created from [the template](../assets/overview-template.md) when the harness is set up in a project. Fill in what is currently known and remove the template comments; leave the rest for later updates.

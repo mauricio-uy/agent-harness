@@ -5,7 +5,7 @@ description: Implement or resume a human-approved plan using TDD when the human 
 
 # Implement Plan
 
-1. Confirm the human requested implementation or resumption and identify the approved plan. Read its current revision, approval, checklist, checkpoint, and relevant notes. When present, read `docs/overview.md` and use the terms in `docs/glossary.md`. If approval is missing, stale, or revoked, suggest `write-plan` and wait; do not invoke it autonomously.
+1. Confirm the human requested implementation or resumption and identify the approved plan. Read its current revision, approval, checklist, checkpoint, and relevant notes. Read `docs/overview.md` and use the terms in `docs/glossary.md`. If approval is missing, stale, or revoked, suggest `write-plan` and wait; do not invoke it autonomously.
 2. Use [the plan format](../write-plan/references/plan-format.md) for approval, state, and execution-tracking rules. Reconcile the checkpoint with the working tree and relevant tests. Choose the next unfinished step whose dependencies are satisfied; preserve unrelated work.
 3. Set the plan to `in-progress` when execution starts. For each small behavior, write a test and run it before changing production code. Confirm it fails because the behavior is absent or wrong; fix test setup or environment failures before treating the result as RED.
 4. Implement the minimum change that makes the test pass. Run the focused test, then refactor with relevant tests green. Test observable behavior and boundaries, not incidental implementation details. For bugs, reproduce the failure; for legacy code, add characterization tests where needed.

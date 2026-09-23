@@ -33,4 +33,4 @@ Add or revise one entry per new or changed term; do not rewrite unrelated entrie
 
 The glossary always lives at `docs/glossary.md`. The path is fixed because skills and `AGENTS.md` read it by that path; do not move or rename it.
 
-Create it from [the template](../assets/glossary-template.md) the first time it is needed. Add entries as they come up rather than populating every known term at once.
+It is created from [the template](../assets/glossary-template.md) when the harness is set up in a project. Add entries as they come up rather than populating every known term at once.

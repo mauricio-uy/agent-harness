@@ -11,4 +11,4 @@
 ## Where to look
 
 <!-- Link docs/README.md for decisions, requirements, research, runbooks, and plans,
-and docs/glossary.md when present. Do not restate their content here. -->
+and docs/glossary.md. Do not restate their content here. -->
