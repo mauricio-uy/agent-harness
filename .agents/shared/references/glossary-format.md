@@ -29,6 +29,8 @@ Add a term when it recurs in conversation or documents and its meaning is not ob
 
 Add or revise one entry per new or changed term; do not rewrite unrelated entries as a side effect. When the document in `Defined in:` is superseded, point the entry to the current one. Remove an entry when no current document or conversation uses the term.
 
-## Creation
+## Location and creation
 
-Create `docs/glossary.md` from [the template](../assets/glossary-template.md) the first time it is needed. Add entries as they come up rather than populating every known term at once.
+The glossary always lives at `docs/glossary.md`. The path is fixed because skills and `AGENTS.md` read it by that path; do not move or rename it.
+
+Create it from [the template](../assets/glossary-template.md) the first time it is needed. Add entries as they come up rather than populating every known term at once.

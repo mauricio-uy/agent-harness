@@ -22,6 +22,8 @@ Use these sections, in order. Keep every section; when one does not apply yet, l
 
 Update only the section affected by the change. Reflect the resulting state of the project, not the intent behind the change that produced it. Prefer trimming stale detail over letting a section grow; when a section no longer fits in a short paragraph or a few bullets, move the detail to its own document and link to it. Use the terms defined in `docs/glossary.md`.
 
-## Creation
+## Location and creation
 
-Create `docs/overview.md` from [the template](../assets/overview-template.md) the first time it is needed. Fill in what is currently known and remove the template comments; leave the rest for later updates.
+The overview always lives at `docs/overview.md`. The path is fixed because skills and `AGENTS.md` read it by that path; do not move or rename it.
+
+Create it from [the template](../assets/overview-template.md) the first time it is needed. Fill in what is currently known and remove the template comments; leave the rest for later updates.
