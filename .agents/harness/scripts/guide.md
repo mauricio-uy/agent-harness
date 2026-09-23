@@ -5,16 +5,16 @@
 Only these documentation tools require Python 3.13 or newer and the dependencies in [requirements.txt](requirements.txt). Create a dedicated environment from the repository root:
 
 ```sh
-python -m venv docs/scripts/.venv
+python -m venv .agents/harness/scripts/.venv
 ```
 
-Activate it with `source docs/scripts/.venv/bin/activate` on POSIX shells or `docs/scripts/.venv/Scripts/Activate.ps1` in PowerShell, then install the dependencies:
+Activate it with `source .agents/harness/scripts/.venv/bin/activate` on POSIX shells or `.agents/harness/scripts/.venv/Scripts/Activate.ps1` in PowerShell, then install the dependencies:
 
 ```sh
-python -m pip install -r docs/scripts/requirements.txt
+python -m pip install -r .agents/harness/scripts/requirements.txt
 ```
 
-This environment is separate from the project's runtime and dependencies. The harness's Python ignore rules apply only within `docs/scripts/`.
+This environment is separate from the project's runtime and dependencies. The harness's Python ignore rules apply only within `.agents/harness/scripts/`.
 
 Run commands from the repository root. All command-line scripts accept `--root PATH` for another checkout and default to the repository containing the script.
 
@@ -26,12 +26,12 @@ After environment setup, enable the versioned hook from the repository root:
 git config --local core.hooksPath .githooks
 ```
 
-Installation is local to each clone. If another hooks directory is already configured, integrate the [pre-commit hook](../../.githooks/pre-commit) there instead of replacing that configuration. The hook checks every commit, including changes outside documentation. Fix reported issues and stage the fixes before retrying.
+Installation is local to each clone. If another hooks directory is already configured, integrate the [pre-commit hook](../../../.githooks/pre-commit) there instead of replacing that configuration. The hook checks every commit, including changes outside documentation. Fix reported issues and stage the fixes before retrying.
 
 To run its validator directly:
 
 ```sh
-python docs/scripts/check-staged-docs.py
+python .agents/harness/scripts/check-staged-docs.py
 ```
 
 Export the complete Git index to a temporary directory and run all four synchronization commands with `--check`, followed by the link checker. Use the staged versions of those validators and preserve Git's alternate index when present. Run every check even if an earlier one fails; return failure if any check fails. No apply mode is provided. Temporary files are removed afterward; the working tree and index are not changed.
@@ -41,9 +41,9 @@ The hook uses Python 3.13 or newer from `python`, `python3`, or the Windows `py 
 ## Synchronize plans
 
 ```sh
-python docs/scripts/sync-plans.py
-python docs/scripts/sync-plans.py --apply
-python docs/scripts/sync-plans.py --check
+python .agents/harness/scripts/sync-plans.py
+python .agents/harness/scripts/sync-plans.py --apply
+python .agents/harness/scripts/sync-plans.py --check
 ```
 
 The default mode previews moves and index changes without writing. `--apply` makes the changes. `--check` writes nothing and fails when synchronization is needed, making it suitable for CI.
@@ -57,9 +57,9 @@ Generated indexes contain ID, linked title, status, and update date, ordered by 
 ## Synchronize specifications
 
 ```sh
-python docs/scripts/sync-specifications.py
-python docs/scripts/sync-specifications.py --apply
-python docs/scripts/sync-specifications.py --check
+python .agents/harness/scripts/sync-specifications.py
+python .agents/harness/scripts/sync-specifications.py --apply
+python .agents/harness/scripts/sync-specifications.py --check
 ```
 
 The same preview, apply, and check modes apply. Validate only ADRs, use cases, functional requirements, and non-functional requirements: required frontmatter, type and filename identity, unique IDs, lifecycle states, dates, revision and approval consistency, and existing relation targets. Replacement targets must have the same type, without self-references or cycles; a superseded document must have an approved successor.
@@ -71,9 +71,9 @@ Report all validation errors and abort before writes if any exist. Never move sp
 ## Synchronize research
 
 ```sh
-python docs/scripts/sync-research.py
-python docs/scripts/sync-research.py --apply
-python docs/scripts/sync-research.py --check
+python .agents/harness/scripts/sync-research.py
+python .agents/harness/scripts/sync-research.py --apply
+python .agents/harness/scripts/sync-research.py --check
 ```
 
 Preview by default, apply explicitly, or check without writing. Validate research identity, metadata, review state, approval consistency, relations, and replacement chains. Generate only `docs/research/README.md`, grouping records by status. Never move records, edit their contents, or generate specification or plan indexes. Validation errors prevent all writes.
@@ -81,9 +81,9 @@ Preview by default, apply explicitly, or check without writing. Validate researc
 ## Synchronize runbooks
 
 ```sh
-python docs/scripts/sync-runbooks.py
-python docs/scripts/sync-runbooks.py --apply
-python docs/scripts/sync-runbooks.py --check
+python .agents/harness/scripts/sync-runbooks.py
+python .agents/harness/scripts/sync-runbooks.py --apply
+python .agents/harness/scripts/sync-runbooks.py --check
 ```
 
 Preview by default, apply explicitly, or check without writing. Validate runbook identity, review state, owner, approval, operational validation metadata, relations, and replacement chains. Generate only `docs/runbooks/README.md`, including the retired section and the validation state and date columns. Keep record paths and contents unchanged. Metadata errors prevent all writes; synchronization never grants approval, changes validation status, or executes a procedure.
@@ -97,8 +97,8 @@ The specification, research, and runbook commands share implementation helpers b
 ## Check documentation links
 
 ```sh
-python docs/scripts/check-doc-links.py
-python docs/scripts/check-doc-links.py --format github --report-dir docs-link-report
+python .agents/harness/scripts/check-doc-links.py
+python .agents/harness/scripts/check-doc-links.py --format github --report-dir docs-link-report
 ```
 
 Scan every Markdown source under `docs/`, `.agents/`, `.claude/commands/`, and `.opencode/commands/`, plus the root `README.md`, `AGENTS.md`, and `CLAUDE.md`. New skills and shared references are included automatically. Resolve relative destinations from the source document, and leading-slash destinations from the repository root.
@@ -125,14 +125,14 @@ CI checks are read-only. They report problems for an agent or human to fix; they
 
 ## CI and verification
 
-[The GitHub workflow](../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan, specification, research, and runbook synchronization independently, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
+[The GitHub workflow](../../../.github/workflows/docs-integrity.yml) runs on pull requests, pushes to `main`, and manual dispatch. It tests the scripts, checks plan, specification, research, and runbook synchronization independently, and scans all documentation links even when a preceding validation check fails. Reports are uploaded as the `docs-link-report` artifact, including on link-check failure.
 
 The workflow also invokes the pre-commit hook against the checked-out index. It intentionally has no path filter: deleting a file outside `docs/` can break a documentation link. It does not configure branch protection; making the check mandatory for merge is a separate repository setting.
 
 Run script tests locally with:
 
 ```sh
-python -m unittest discover -s docs/scripts/tests -v
+python -m unittest discover -s .agents/harness/scripts/tests -v
 ```
 
 These tests use disposable directories to check script behavior; they do not exercise the full human-agent planning workflow or create plans in this repository.

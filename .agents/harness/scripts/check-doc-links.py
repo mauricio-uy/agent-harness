@@ -249,7 +249,7 @@ def report(count, errors, github=False, report_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
     parser.add_argument("--format", choices=("text", "github"), default="text")
     parser.add_argument("--report-dir", type=Path)
     args = parser.parse_args()

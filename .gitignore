@@ -1,9 +1,9 @@
 # Documentation tooling only
-/docs/scripts/**/__pycache__/
-/docs/scripts/**/*.py[cod]
-/docs/scripts/.venv/
+/.agents/harness/scripts/**/__pycache__/
+/.agents/harness/scripts/**/*.py[cod]
+/.agents/harness/scripts/.venv/
 
-# Generated locally by scripts/setup-claude-skills.*; see docs/harness.md
+# Generated locally by .agents/harness/scripts/setup-claude-skills.*; see .agents/harness/README.md
 /.claude/skills
 
 # Generated validation reports

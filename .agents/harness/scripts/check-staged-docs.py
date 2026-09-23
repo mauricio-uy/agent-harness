@@ -10,7 +10,7 @@ import tempfile
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
     args = parser.parse_args()
     commands = [(f"sync-{kind}.py", "--check") for kind in ("plans", "specifications", "research", "runbooks")]
     commands.append(("check-doc-links.py",))
@@ -26,9 +26,9 @@ def main():
             env = dict(os.environ, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
             for script, *options in commands:
                 print(f"\nStaged documentation: {script}", flush=True)
-                path = snapshot / "docs/scripts" / script
+                path = snapshot / ".agents/harness/scripts" / script
                 if not path.is_file():
-                    print(f"ERROR: stage docs/scripts/{script} before committing.")
+                    print(f"ERROR: stage .agents/harness/scripts/{script} before committing.")
                     failed = True
                     continue
                 result = subprocess.run([sys.executable, str(path), "--root", str(snapshot), *options], cwd=snapshot, env=env)

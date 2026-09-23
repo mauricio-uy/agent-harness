@@ -178,7 +178,7 @@ def synchronize(root, apply=False, check=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--apply", action="store_true")
     modes.add_argument("--check", action="store_true")

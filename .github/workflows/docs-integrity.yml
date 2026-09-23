@@ -27,18 +27,18 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: docs/scripts/requirements.txt
+          cache-dependency-path: .agents/harness/scripts/requirements.txt
 
       - name: Install documentation dependencies
         id: dependencies
-        run: python -m pip install -r docs/scripts/requirements.txt
+        run: python -m pip install -r .agents/harness/scripts/requirements.txt
 
       - name: Test documentation scripts
-        run: python -m unittest discover -s docs/scripts/tests -v
+        run: python -m unittest discover -s .agents/harness/scripts/tests -v
 
       - name: Validate plans and generated indexes
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python docs/scripts/sync-plans.py --check
+        run: python .agents/harness/scripts/sync-plans.py --check
 
       - name: Exercise staged documentation hook
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
@@ -46,19 +46,19 @@ jobs:
 
       - name: Validate specifications and state indexes
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python docs/scripts/sync-specifications.py --check
+        run: python .agents/harness/scripts/sync-specifications.py --check
 
       - name: Validate research and its state index
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python docs/scripts/sync-research.py --check
+        run: python .agents/harness/scripts/sync-research.py --check
 
       - name: Validate runbooks and their state index
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python docs/scripts/sync-runbooks.py --check
+        run: python .agents/harness/scripts/sync-runbooks.py --check
 
       - name: Check all documentation links
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python docs/scripts/check-doc-links.py --format github --report-dir docs-link-report
+        run: python .agents/harness/scripts/check-doc-links.py --format github --report-dir docs-link-report
 
       - name: Upload complete link reports
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}

@@ -4,14 +4,14 @@ A documentation-first harness for software development with Codex, Claude Code, 
 
 ## Getting started
 
-1. Follow the [tooling setup guide](docs/scripts/guide.md#environment-setup) and [hook setup](docs/scripts/guide.md#pre-commit-check).
-2. Using **Claude Code**: link its skills directory once per clone, since Claude Code does not discover `.agents/skills/` on its own (see [Claude Code setup](docs/harness.md#claude-code-setup)):
+1. Follow the [tooling setup guide](.agents/harness/scripts/guide.md#environment-setup) and [hook setup](.agents/harness/scripts/guide.md#pre-commit-check).
+2. Using **Claude Code**: link its skills directory once per clone, since Claude Code does not discover `.agents/skills/` on its own (see [Claude Code setup](.agents/harness/README.md#claude-code-setup)):
    ```sh
-   bash scripts/setup-claude-skills.sh        # macOS, Linux
-   powershell -File scripts/setup-claude-skills.ps1   # Windows
+   bash .agents/harness/scripts/setup-claude-skills.sh        # macOS, Linux
+   powershell -File .agents/harness/scripts/setup-claude-skills.ps1   # Windows
    ```
    Codex, OpenCode, and Pi need no equivalent step.
-3. Explore the [agent entry points](docs/harness.md).
+3. Explore the [agent entry points](.agents/harness/README.md).
 4. Use the skills below for the task at hand.
 
 ## Skills
@@ -26,4 +26,4 @@ A documentation-first harness for software development with Codex, Claude Code, 
 
 ## Documentation
 
-Browse the [documentation index](docs/README.md) for project records and the [script guide](docs/scripts/guide.md) for maintenance commands.
+Browse the [documentation index](docs/README.md) for project records and the [script guide](.agents/harness/scripts/guide.md) for maintenance commands.

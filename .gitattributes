@@ -1,7 +1,7 @@
 # Conventions for scripts that must run as POSIX shell scripts, and documentation tooling.
 /.githooks/pre-commit text eol=lf
-/docs/scripts/**/*.py text eol=lf diff=python
-/docs/scripts/requirements.txt text eol=lf
+/.agents/harness/scripts/**/*.py text eol=lf diff=python
+/.agents/harness/scripts/requirements.txt text eol=lf
 
 # Executed directly as a POSIX shell script.
-/scripts/setup-claude-skills.sh text eol=lf
+/.agents/harness/scripts/setup-claude-skills.sh text eol=lf

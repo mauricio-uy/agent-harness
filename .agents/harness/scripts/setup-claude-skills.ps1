@@ -8,7 +8,7 @@
 # directories without administrator privileges or Developer Mode.
 
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
+$root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $link = Join-Path $root ".claude\skills"
 $target = Join-Path $root ".agents\skills"
 

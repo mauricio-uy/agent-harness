@@ -8,7 +8,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-root_dir="$(cd "$script_dir/.." && pwd)"
+root_dir="$(cd "$script_dir/../../.." && pwd)"
 link="$root_dir/.claude/skills"
 target="../.agents/skills"
 
@@ -27,7 +27,7 @@ if [[ ! -L "$link" ]]; then
   rmdir "$link" 2>/dev/null || true
   echo "ERROR: ln -s reported success but $link is not a symlink (seen on Git Bash for Windows without" >&2
   echo "symlink privilege, where it silently creates an empty directory instead). Enable Windows" >&2
-  echo "Developer Mode, or run scripts/setup-claude-skills.ps1 in PowerShell instead." >&2
+  echo "Developer Mode, or run .agents/harness/scripts/setup-claude-skills.ps1 in PowerShell instead." >&2
   exit 1
 fi
 echo "Created symlink $link -> $target"

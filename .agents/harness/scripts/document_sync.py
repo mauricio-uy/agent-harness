@@ -234,7 +234,7 @@ def synchronize(root, types, generator, apply=False, check=False, *, validator=v
 
 def run(types, generator, description, *, validator=validate, indexer=index_content):
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--apply", action="store_true")
     modes.add_argument("--check", action="store_true")
