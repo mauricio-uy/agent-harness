@@ -1,17 +1,17 @@
 # Harness Compatibility
 
-The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [write-plan](../.agents/skills/write-plan/SKILL.md), [implement-plan](../.agents/skills/implement-plan/SKILL.md), [write-specification](../.agents/skills/write-specification/SKILL.md), [write-research-report](../.agents/skills/write-research-report/SKILL.md), and [write-runbook](../.agents/skills/write-runbook/SKILL.md). Adapters contain invocation metadata and entry points, not copies of the procedures.
+The shared rules live in [AGENTS.md](../AGENTS.md). Procedures have one canonical source each: [write-plan](../.agents/skills/write-plan/SKILL.md), [implement-plan](../.agents/skills/implement-plan/SKILL.md), [write-specification](../.agents/skills/write-specification/SKILL.md), [write-research-report](../.agents/skills/write-research-report/SKILL.md), and [write-runbook](../.agents/skills/write-runbook/SKILL.md). Codex, OpenCode, and Pi discover `.agents/skills/` natively. Claude Code does not; [Claude Code setup](#claude-code-setup) links it in rather than adapting each skill. Where an adapter remains (OpenCode's `write-plan` command), it contains invocation metadata and an entry point, not a copy of the procedure.
 
 ## Write Plan: explicit human invocation
 
 | Agent | Human invocation | Invocation control |
 | --- | --- | --- |
 | Codex | `$write-plan` | [agents/openai.yaml](../.agents/skills/write-plan/agents/openai.yaml) disables implicit invocation. |
-| Claude Code | `/write-plan` | [Command adapter](../.claude/commands/write-plan.md) uses `disable-model-invocation: true` and reads the canonical skill. |
-| OpenCode | `/write-plan` | [opencode.json](../opencode.json) denies automatic loading through the skill tool; the [human command](../.opencode/commands/write-plan.md) includes the canonical file directly. |
+| Claude Code | `/write-plan` | The canonical skill's own `disable-model-invocation: true` blocks automatic invocation once discovered via [the local skills link](#claude-code-setup). |
+| OpenCode | `/write-plan` | [opencode.json](../opencode.json) denies automatic loading through the skill tool by name; the [human command](../.opencode/commands/write-plan.md) includes the canonical file directly instead. |
 | Pi | `/skill:write-plan` | The canonical skill's `disable-model-invocation: true` hides it from the automatic skill prompt. |
 
-Codex, OpenCode, and Pi discover `.agents/skills/`. Claude Code's supported command adapter avoids an extra skill with the same name in `.claude/skills/`, which OpenCode would also discover. [CLAUDE.md](../CLAUDE.md) imports the shared rules for Claude sessions that do not load `AGENTS.md` natively. No symlinks or duplicated procedures are required.
+[CLAUDE.md](../CLAUDE.md) imports the shared rules for Claude sessions that do not load `AGENTS.md` natively.
 
 ## Implement Plan: human-requested execution
 
@@ -20,7 +20,7 @@ The agent may select `implement-plan` when the human asks to implement or resume
 | Agent | Entry point | Invocation control |
 | --- | --- | --- |
 | Codex | Automatic selection or `$implement-plan` | [agents/openai.yaml](../.agents/skills/implement-plan/agents/openai.yaml) allows implicit invocation. |
-| Claude Code | Automatic selection or `/implement-plan` | [Command adapter](../.claude/commands/implement-plan.md) retains default model invocation. |
+| Claude Code | Automatic selection or `/implement-plan` | Discovered directly via [the local skills link](#claude-code-setup); the canonical skill retains default model invocation. |
 | OpenCode | Automatic selection of the `implement-plan` skill | [opencode.json](../opencode.json) allows this skill while keeping `write-plan` denied. |
 | Pi | Automatic selection or `/skill:implement-plan` | The canonical skill retains default model invocation. |
 
@@ -31,7 +31,7 @@ The agent may select `write-specification` when the human asks to document or re
 | Agent | Entry point | Invocation control |
 | --- | --- | --- |
 | Codex | Automatic selection or `$write-specification` | [agents/openai.yaml](../.agents/skills/write-specification/agents/openai.yaml) allows implicit invocation. |
-| Claude Code | Automatic selection or `/write-specification` | [Command adapter](../.claude/commands/write-specification.md) retains default model invocation. |
+| Claude Code | Automatic selection or `/write-specification` | Discovered directly via [the local skills link](#claude-code-setup); the canonical skill retains default model invocation. |
 | OpenCode | Automatic selection of the `write-specification` skill | [opencode.json](../opencode.json) allows this skill. |
 | Pi | Automatic selection or `/skill:write-specification` | The canonical skill retains default model invocation. |
 
@@ -42,7 +42,7 @@ The agent may select `write-research-report` when the human requests documented 
 | Agent | Entry point | Invocation control |
 | --- | --- | --- |
 | Codex | Automatic selection or `$write-research-report` | [agents/openai.yaml](../.agents/skills/write-research-report/agents/openai.yaml) allows implicit invocation. |
-| Claude Code | Automatic selection or `/write-research-report` | [Command adapter](../.claude/commands/write-research-report.md) retains default model invocation. |
+| Claude Code | Automatic selection or `/write-research-report` | Discovered directly via [the local skills link](#claude-code-setup); the canonical skill retains default model invocation. |
 | OpenCode | Automatic selection of the `write-research-report` skill | [opencode.json](../opencode.json) allows this skill. |
 | Pi | Automatic selection or `/skill:write-research-report` | The canonical skill retains default model invocation. |
 
@@ -53,9 +53,22 @@ The agent may select `write-runbook` when the human requests a reusable operatio
 | Agent | Entry point | Invocation control |
 | --- | --- | --- |
 | Codex | Automatic selection or `$write-runbook` | [agents/openai.yaml](../.agents/skills/write-runbook/agents/openai.yaml) allows implicit invocation. |
-| Claude Code | Automatic selection or `/write-runbook` | [Command adapter](../.claude/commands/write-runbook.md) retains default model invocation. |
+| Claude Code | Automatic selection or `/write-runbook` | Discovered directly via [the local skills link](#claude-code-setup); the canonical skill retains default model invocation. |
 | OpenCode | Automatic selection of the `write-runbook` skill | [opencode.json](../opencode.json) allows this skill. |
 | Pi | Automatic selection or `/skill:write-runbook` | The canonical skill retains default model invocation. |
+
+## Claude Code setup
+
+Claude Code discovers skills under `~/.claude/skills/` and `.claude/skills/` (project and nested); it does not scan `.agents/skills/`. Rather than adapt each skill individually, run once per clone:
+
+```sh
+bash scripts/setup-claude-skills.sh        # macOS, Linux
+powershell -File scripts/setup-claude-skills.ps1   # Windows
+```
+
+This links `.claude/skills` to `.agents/skills` (a symlink on macOS/Linux, an NTFS junction on Windows so no administrator privilege or Developer Mode is required) so Claude Code reads the canonical `SKILL.md` files directly, with no adapter and nothing duplicated. The link is not committed: a Git symlink checked out without `core.symlinks` support (the default on Windows without Developer Mode) becomes a plain text file containing the target path instead of a working link, which breaks silently. Generating it locally avoids that failure mode entirely; see [.gitignore](../.gitignore).
+
+Each canonical `SKILL.md` already carries the frontmatter Claude Code needs (`name`, `description`, and `disable-model-invocation` for `write-plan`), so no Claude-specific metadata lives outside the skill files. This also means OpenCode's own `.claude/skills/` scan path now finds the same files as `.agents/skills/`. Tested directly against `opencode debug skill` and `opencode agent list` with the link in place: OpenCode deduplicates by skill name to one registered instance, and `permission.skill` rules in [opencode.json](../opencode.json) match by that same name, so `write-plan`'s `deny` still applies regardless of which of the two paths OpenCode reports as the discovery location.
 
 ## Git hook and repository setup
 
@@ -63,7 +76,7 @@ The shared [pre-commit hook](../.githooks/pre-commit) works at the Git boundary,
 
 [GitHub CI](../.github/workflows/docs-integrity.yml) runs the documentation checks independently and exercises the hook. Neither hooks nor metadata checks authenticate approval or enforce human consultation; those remain workflow responsibilities. See [script behavior and limits](scripts/guide.md#pre-commit-check).
 
-[.gitattributes](../.gitattributes) sets LF line endings only for the documentation tools' Python files, dependency list, and pre-commit hook; Python diff behavior applies only within `docs/scripts/`. [.gitignore](../.gitignore) excludes only that directory's Python environment and bytecode, plus generated link reports. Documentation tooling does not prescribe the runtime, dependency setup, or Git conventions for other files in the project using the harness.
+[.gitattributes](../.gitattributes) sets LF line endings for the documentation tools' Python files, dependency list, and pre-commit hook, plus the Claude Code setup shell script; Python diff behavior applies only within `docs/scripts/`. [.gitignore](../.gitignore) excludes that directory's Python environment and bytecode, generated link reports, and the locally generated `.claude/skills` link. Documentation tooling does not prescribe the runtime, dependency setup, or Git conventions for other files in the project using the harness.
 
 ## Boundaries
 

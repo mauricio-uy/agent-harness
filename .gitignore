@@ -3,5 +3,8 @@
 /docs/scripts/**/*.py[cod]
 /docs/scripts/.venv/
 
+# Generated locally by scripts/setup-claude-skills.*; see docs/harness.md
+/.claude/skills
+
 # Generated validation reports
 /docs-link-report/

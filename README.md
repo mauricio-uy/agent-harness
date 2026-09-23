@@ -5,8 +5,14 @@ A documentation-first harness for software development with Codex, Claude Code, 
 ## Getting started
 
 1. Follow the [tooling setup guide](docs/scripts/guide.md#environment-setup) and [hook setup](docs/scripts/guide.md#pre-commit-check).
-2. Explore the [agent entry points](docs/harness.md).
-3. Use the skills below for the task at hand.
+2. Using **Claude Code**: link its skills directory once per clone, since Claude Code does not discover `.agents/skills/` on its own (see [Claude Code setup](docs/harness.md#claude-code-setup)):
+   ```sh
+   bash scripts/setup-claude-skills.sh        # macOS, Linux
+   powershell -File scripts/setup-claude-skills.ps1   # Windows
+   ```
+   Codex, OpenCode, and Pi need no equivalent step.
+3. Explore the [agent entry points](docs/harness.md).
+4. Use the skills below for the task at hand.
 
 ## Skills
 
