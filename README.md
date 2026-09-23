@@ -47,7 +47,7 @@ Skill links are not committed: a Git symlink checked out without symlink support
 ## Usage
 
 ```sh
-harness init                      # prompts for clients
+harness init                      # choose clients: space toggles, / filters, enter confirms
 harness init --clients claude-code,codex
 harness link                      # recreate skill links in a new clone
 harness sync                      # preview index and plan changes
@@ -56,7 +56,7 @@ harness check                     # every read-only check
 harness check --staged            # the same checks against the Git index
 ```
 
-`init` never overwrites an existing file; it reports it and leaves the decision to you. After installing, ask your agent to complete `docs/overview.md`, and enable the pre-commit check in each clone with `git config core.hooksPath .githooks`.
+Output is colored in a terminal and plain otherwise; `NO_COLOR` disables colors, and `HARNESS_ACCESSIBLE=1` replaces the selector with plain prompts for screen readers. `init` never overwrites an existing file; it reports it and leaves the decision to you. After installing, ask your agent to complete `docs/overview.md`, and enable the pre-commit check in each clone with `git config core.hooksPath .githooks`.
 
 ### What `check` verifies
 
