@@ -124,15 +124,17 @@ class DocumentationScriptsTests(unittest.TestCase):
         result = self.run_script("check-doc-links.py")
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
 
-    def test_checks_new_skills_and_command_adapters(self):
+    def test_checks_new_skills_shared_references_and_command_adapters(self):
         self.write(".agents/skills/implement-plan/SKILL.md", "# Implement Plan\n\n[Reference](missing.md)\n")
+        self.write(".agents/shared/references/example-format.md", "# Format\n\n[Template](missing.md)\n")
         self.write(".claude/commands/implement-plan.md", "# Implement Plan adapter\n\n[Skill](missing.md)\n")
         report = self.root / "report"
         result = self.run_script("check-doc-links.py", "--report-dir", str(report))
         self.assertEqual(result.returncode, 1, result.stderr + result.stdout)
         errors = json.loads((report / "links.json").read_text())["errors"]
         self.assertEqual({e["source"] for e in errors}, {
-            ".agents/skills/implement-plan/SKILL.md", ".claude/commands/implement-plan.md",
+            ".agents/skills/implement-plan/SKILL.md", ".agents/shared/references/example-format.md",
+            ".claude/commands/implement-plan.md",
         })
 
     def test_complete_reports_and_bounded_github_summary(self):

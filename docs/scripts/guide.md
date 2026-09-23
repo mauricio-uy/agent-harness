@@ -101,7 +101,7 @@ python docs/scripts/check-doc-links.py
 python docs/scripts/check-doc-links.py --format github --report-dir docs-link-report
 ```
 
-Scan every Markdown source under `docs/`, `.agents/skills/`, `.claude/commands/`, and `.opencode/commands/`, plus the root `README.md`, `AGENTS.md`, and `CLAUDE.md`. New skills are included automatically. Resolve relative destinations from the source document, and leading-slash destinations from the repository root.
+Scan every Markdown source under `docs/`, `.agents/`, `.claude/commands/`, and `.opencode/commands/`, plus the root `README.md`, `AGENTS.md`, and `CLAUDE.md`. New skills and shared references are included automatically. Resolve relative destinations from the source document, and leading-slash destinations from the repository root.
 
 Support CommonMark inline links, reference-style links, images, and raw HTML `href`/`src` attributes. Check local target existence and Markdown heading fragments, including duplicate headings. Ignore links inside fenced code, inline code, HTML comments, and YAML frontmatter. External URLs are outside this local integrity check and are not fetched.
 
