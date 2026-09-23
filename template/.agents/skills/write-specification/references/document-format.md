@@ -19,9 +19,9 @@ Maintain one `README.md` index in each type's destination directory. Keep `docs/
 
 Each type index has separate tables for `awaiting-approval`, `draft`, the type's approval state, `rejected`, and `superseded`, in that order. Each table contains `ID`, `Document`, `Revision`, and `Updated`, sorted by ID. The section heading supplies the status; document titles link to their files using relative paths. Empty sections retain their headers and a short empty-state message, without placeholder records.
 
-`sync-specifications.py` generates these indexes from frontmatter. Every document appears exactly once, in its status table, including historical records. Change document metadata and regenerate; do not edit generated rows. Status changes move rows between tables, never document files. When accepting a replacement, update both records before regenerating. Keep navigation outside generated indexes in `docs/README.md`.
+`harness sync specifications` generates these indexes from frontmatter. Every document appears exactly once, in its status table, including historical records. Change document metadata and regenerate; do not edit generated rows. Status changes move rows between tables, never document files. When accepting a replacement, update both records before regenerating. Keep navigation outside generated indexes in `docs/README.md`.
 
-Read only the relevant type and status section, or search by ID; do not load every index or document. Include historical files when allocating IDs or tracing decisions. Do not run `sync-plans.py` on specification directories.
+Read only the relevant type and status section, or search by ID; do not load every index or document. Include historical files when allocating IDs or tracing decisions. Do not run `harness sync plans` on specification directories.
 
 ## Shared frontmatter
 
