@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 // Client is a product that loads Agent Skills, in the specification's terms.
@@ -36,7 +37,7 @@ type state struct {
 type Installer struct {
 	Root    string
 	Payload fs.FS
-	Out     io.Writer
+	Out     report.Sink
 	failed  bool
 }
 
@@ -73,7 +74,8 @@ func (in *Installer) Init(clients []string) error {
 		return err
 	}
 	for _, id := range clients {
-		fmt.Fprintf(in.Out, "\n== %s ==\n", id)
+		report.Blank(in.Out)
+		in.Out.Emit(report.Section, id)
 		if err := in.addClient(id); err != nil {
 			return err
 		}
@@ -103,7 +105,7 @@ func (in *Installer) Link() error {
 		return err
 	}
 	if !slices.Contains(recorded.Clients, "claude-code") {
-		fmt.Fprintf(in.Out, "No recorded client needs links (%s: %v).\n", stateFile, recorded.Clients)
+		report.Emitf(in.Out, report.Plain, "No recorded client needs links (%s: %v).", stateFile, recorded.Clients)
 		return nil
 	}
 	if err := in.linkClaudeSkills(); err != nil {
@@ -127,7 +129,7 @@ func (in *Installer) addClient(id string) error {
 		}
 		return in.mergeOpenCodeConfig()
 	case "pi":
-		fmt.Fprintln(in.Out, "Pi reads .agents/skills and AGENTS.md directly; nothing to add.")
+		in.Out.Emit(report.Plain, "Pi reads .agents/skills and AGENTS.md directly; nothing to add.")
 		return nil
 	}
 	return fmt.Errorf("unknown client %q", id)
@@ -148,7 +150,7 @@ func (in *Installer) copyTree(dir string) error {
 		}
 		target := filepath.Join(in.Root, filepath.FromSlash(rel))
 		if _, err := os.Lstat(target); err == nil {
-			fmt.Fprintf(in.Out, "SKIP   %s (exists)\n", rel)
+			report.Emitf(in.Out, report.Skip, "%s (exists)", rel)
 			return nil
 		}
 		content, err := fs.ReadFile(in.Payload, name)
@@ -165,7 +167,7 @@ func (in *Installer) copyTree(dir string) error {
 		if err := os.WriteFile(target, content, mode); err != nil {
 			return err
 		}
-		fmt.Fprintf(in.Out, "CREATE %s\n", rel)
+		in.Out.Emit(report.Create, rel)
 		return nil
 	})
 }
@@ -200,7 +202,8 @@ func (in *Installer) writeState(s state) error {
 	if err := os.WriteFile(target, append(raw, '\n'), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(in.Out, "\nRECORD %s %v\n", stateFile, s.Clients)
+	report.Blank(in.Out)
+	report.Emitf(in.Out, report.Record, "%s %v", stateFile, s.Clients)
 	return nil
 }
 
@@ -210,7 +213,7 @@ func clientOrder(id string) int {
 
 func (in *Installer) warn(format string, args ...any) {
 	in.failed = true
-	fmt.Fprintf(in.Out, "WARN   "+format+"\n", args...)
+	report.Emitf(in.Out, report.Warn, format, args...)
 }
 
 func (in *Installer) result() error {
@@ -221,10 +224,11 @@ func (in *Installer) result() error {
 }
 
 func (in *Installer) nextSteps(clients []string) {
-	fmt.Fprintln(in.Out, "\nNext steps:")
-	fmt.Fprintln(in.Out, "  - Ask your agent to complete docs/overview.md (Purpose and Structure).")
-	fmt.Fprintln(in.Out, "  - Enable the pre-commit check in each clone: git config core.hooksPath .githooks")
+	report.Blank(in.Out)
+	in.Out.Emit(report.Heading, "Next steps:")
+	in.Out.Emit(report.Plain, "  - Ask your agent to complete docs/overview.md (Purpose and Structure).")
+	in.Out.Emit(report.Plain, "  - Enable the pre-commit check in each clone: git config core.hooksPath .githooks")
 	if slices.Contains(clients, "claude-code") {
-		fmt.Fprintln(in.Out, "  - Skill links are not committed; other clones run: harness link")
+		in.Out.Emit(report.Plain, "  - Skill links are not committed; other clones run: harness link")
 	}
 }

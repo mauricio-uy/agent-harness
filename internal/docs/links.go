@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +17,8 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/text"
 	"golang.org/x/net/html"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 // LinkError is one broken local link. Its JSON form is the report contract.
@@ -427,22 +428,43 @@ type LinkReport struct {
 	ReportDir string
 }
 
+// LinkResult is the outcome of checking local links.
+type LinkResult struct {
+	Scanned int         `json:"scanned"`
+	Errors  []LinkError `json:"errors"`
+}
+
+// InspectLinks checks every local link under root.
+func InspectLinks(root string) LinkResult {
+	count, errors := CheckLinks(root)
+	if errors == nil {
+		errors = []LinkError{}
+	}
+	return LinkResult{count, errors}
+}
+
 // ReportLinks prints the errors and writes the requested reports; it returns
 // the exit status.
-func ReportLinks(count int, errors []LinkError, options LinkReport, out io.Writer) int {
+func ReportLinks(count int, errors []LinkError, options LinkReport, out report.Sink) int {
 	previous := ""
 	for _, e := range errors {
 		if e.Source != previous {
-			fmt.Fprintf(out, "\nFILE %s\n", e.Source)
+			report.Blank(out)
+			out.Emit(report.File, e.Source)
 			previous = e.Source
 		}
-		fmt.Fprintf(out, "  line %d: %q: %s; resolved=%q", e.Line, e.Destination, e.Reason, e.Resolved)
+		line := fmt.Sprintf("  line %d: %q: %s; resolved=%q", e.Line, e.Destination, e.Reason, e.Resolved)
 		if e.Suggestion != "" {
-			fmt.Fprintf(out, "; suggested=%q", e.Suggestion)
+			line += fmt.Sprintf("; suggested=%q", e.Suggestion)
 		}
-		fmt.Fprintln(out)
+		out.Emit(report.Plain, line)
 	}
-	fmt.Fprintf(out, "\nScanned %d Markdown file(s); found %d error(s).\n", count, len(errors))
+	report.Blank(out)
+	outcome := report.Pass
+	if len(errors) > 0 {
+		outcome = report.Fail
+	}
+	report.Emitf(out, outcome, "Scanned %d Markdown file(s); found %d error(s).", count, len(errors))
 	if options.GitHub {
 		// GitHub may cap visible annotations; full reports and logs remain complete.
 		for _, e := range errors[:min(len(errors), 50)] {
@@ -450,7 +472,7 @@ func ReportLinks(count int, errors []LinkError, options LinkReport, out io.Write
 			if e.Suggestion != "" {
 				message += "; suggested=" + e.Suggestion
 			}
-			fmt.Fprintf(out, "::error file=%s,line=%d,title=Broken documentation link::%s\n",
+			report.Emitf(out, report.Plain, "::error file=%s,line=%d,title=Broken documentation link::%s",
 				commandEscape(e.Source, true), e.Line, commandEscape(message, false))
 		}
 		if summary := os.Getenv("GITHUB_STEP_SUMMARY"); summary != "" {
@@ -461,8 +483,8 @@ func ReportLinks(count int, errors []LinkError, options LinkReport, out io.Write
 		}
 	}
 	if options.ReportDir != "" {
-		if err := writeLinkReports(options.ReportDir, count, errors); err != nil {
-			fmt.Fprintf(out, "ERROR: %v\n", err)
+		if err := WriteLinkReports(options.ReportDir, count, errors); err != nil {
+			report.Emitf(out, report.Error, "%v", err)
 			return 1
 		}
 	}
@@ -472,7 +494,8 @@ func ReportLinks(count int, errors []LinkError, options LinkReport, out io.Write
 	return 0
 }
 
-func writeLinkReports(dir string, count int, errors []LinkError) error {
+// WriteLinkReports writes links.json and links.md to dir.
+func WriteLinkReports(dir string, count int, errors []LinkError) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

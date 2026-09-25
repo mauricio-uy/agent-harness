@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 func (f *fixture) plan(n int, status, approvalRevision string, revision int, overrides ...field) string {
@@ -175,7 +177,7 @@ func TestTypeWithoutStatesKeepsTheSameLayout(t *testing.T) {
 		validate: func(record, DocType, *Suite) []string { return nil }}
 	f.write("docs/notes/records/RES-000001-a.md", frontmatter([]field{{"id", "RES-000001"}, {"title", "A"}, {"revision", 1}, {"updated", "2026-09-20"}}))
 	var out strings.Builder
-	if status := suite.Sync(f.root, true, false, &out); status != 0 {
+	if status := suite.Sync(f.root, true, false, report.Text{W: &out}); status != 0 {
 		t.Fatalf("status %d:\n%s", status, out.String())
 	}
 	if index := f.read("docs/notes/all.md"); !strings.Contains(index, "# Notes: All") || !strings.Contains(index, "RES-000001") {

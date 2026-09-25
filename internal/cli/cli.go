@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	harness "github.com/mauricio-uy/agent-harness"
 	"github.com/mauricio-uy/agent-harness/internal/docs"
 	"github.com/mauricio-uy/agent-harness/internal/install"
+	"github.com/mauricio-uy/agent-harness/internal/report"
 	"github.com/mauricio-uy/agent-harness/internal/ui"
 )
 
@@ -29,7 +31,7 @@ Usage:
   harness link   [--root DIR]                    recreate client skill links in this clone
   harness sync   [--root DIR] [--apply|--check] [SUITE...]
                                                  validate documents and regenerate indexes
-  harness check  [--root DIR] [--staged] [--format text|github] [--report-dir DIR]
+  harness check  [--root DIR] [--staged] [--format text|github|json] [--report-dir DIR]
                                                  run every read-only check
   harness version
 
@@ -52,22 +54,20 @@ func Run(args []string, streams IO) int {
 	}
 	command, rest := args[0], args[1:]
 	printer := ui.NewPrinter(colorprofile.NewWriter(streams.Out, os.Environ()))
-	defer printer.Flush()
-	streams.Out = printer
 	errOut := colorprofile.NewWriter(streams.Err, os.Environ())
 	var err error
 	status := 0
 	switch command {
 	case "init":
-		err = runInit(rest, streams)
+		err = runInit(rest, streams, printer)
 		summarize(printer, err)
 	case "link":
-		err = runLink(rest, streams)
+		err = runLink(rest, streams, printer)
 		summarize(printer, err)
 	case "sync":
-		status, err = runSync(rest, streams)
+		status, err = runSync(rest, streams, printer)
 	case "check":
-		status, err = runCheck(rest, streams)
+		status, err = runCheck(rest, streams, printer)
 	case "version", "--version":
 		fmt.Fprintln(streams.Out, Version)
 	case "help", "-h", "--help":
@@ -92,12 +92,12 @@ func summarize(printer *ui.Printer, err error) {
 	if errors.Is(err, ui.ErrCancelled) || errors.Is(err, flag.ErrHelp) || (err != nil && nothingDone) {
 		return
 	}
-	fmt.Fprintln(printer)
+	report.Blank(printer)
 	if err != nil {
-		fmt.Fprintln(printer, ui.Warning(printer.Summary()))
+		printer.Emit(report.Plain, ui.Warning(printer.Summary()))
 		return
 	}
-	fmt.Fprintln(printer, ui.Success(printer.Summary()))
+	printer.Emit(report.Plain, ui.Success(printer.Summary()))
 }
 
 func newFlags(name string, streams IO) (*flag.FlagSet, *string) {
@@ -118,7 +118,7 @@ func absolute(root string) (string, error) {
 	return path, nil
 }
 
-func runInit(args []string, streams IO) error {
+func runInit(args []string, streams IO, out report.Sink) error {
 	flags, root := newFlags("init", streams)
 	clientList := flags.String("clients", "", "comma-separated clients to configure, or none")
 	if err := flags.Parse(args); err != nil {
@@ -135,12 +135,12 @@ func runInit(args []string, streams IO) error {
 	case streams.SelectClients != nil:
 		clients, err = streams.SelectClients()
 	default:
-		fmt.Fprintln(streams.Out, "No terminal to prompt; installing without clients. Pass --clients to choose them.")
+		out.Emit(report.Plain, "No terminal to prompt; installing without clients. Pass --clients to choose them.")
 	}
 	if err != nil {
 		return err
 	}
-	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: streams.Out}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out}
 	return installer.Init(clients)
 }
 
@@ -150,7 +150,7 @@ func isFlagSet(flags *flag.FlagSet, name string) bool {
 	return set
 }
 
-func runLink(args []string, streams IO) error {
+func runLink(args []string, streams IO, out report.Sink) error {
 	flags, root := newFlags("link", streams)
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -159,11 +159,11 @@ func runLink(args []string, streams IO) error {
 	if err != nil {
 		return err
 	}
-	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: streams.Out}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out}
 	return installer.Link()
 }
 
-func runSync(args []string, streams IO) (int, error) {
+func runSync(args []string, streams IO, out report.Sink) (int, error) {
 	flags, root := newFlags("sync", streams)
 	apply := flags.Bool("apply", false, "write index and plan changes")
 	check := flags.Bool("check", false, "write nothing; fail when synchronization is needed")
@@ -189,9 +189,10 @@ func runSync(args []string, streams IO) (int, error) {
 	status := 0
 	for _, name := range suites {
 		if len(suites) > 1 {
-			fmt.Fprintf(streams.Out, "\n== %s ==\n", name)
+			report.Blank(out)
+			out.Emit(report.Section, name)
 		}
-		result, err := docs.SyncSuite(name, path, *apply, *check, streams.Out)
+		result, err := docs.SyncSuite(name, path, *apply, *check, out)
 		if err != nil {
 			return 0, err
 		}
@@ -200,29 +201,51 @@ func runSync(args []string, streams IO) (int, error) {
 	return status, nil
 }
 
-func runCheck(args []string, streams IO) (int, error) {
+func runCheck(args []string, streams IO, out report.Sink) (int, error) {
 	flags, root := newFlags("check", streams)
 	staged := flags.Bool("staged", false, "check the Git index instead of the working tree")
-	format := flags.String("format", "text", "link report format: text or github")
+	format := flags.String("format", "text", "output format: text, github, or json")
 	reportDir := flags.String("report-dir", "", "write links.json and links.md to this directory")
 	if err := flags.Parse(args); err != nil {
 		return 0, err
 	}
-	if *format != "text" && *format != "github" {
+	if !slices.Contains([]string{"text", "github", "json"}, *format) {
 		return 0, fmt.Errorf("unknown format %q", *format)
 	}
 	path, err := absolute(*root)
 	if err != nil {
 		return 0, err
 	}
-	report := docs.LinkReport{GitHub: *format == "github", ReportDir: *reportDir}
-	if report.ReportDir != "" {
-		if report.ReportDir, err = filepath.Abs(report.ReportDir); err != nil {
+	links := docs.LinkReport{GitHub: *format == "github", ReportDir: *reportDir}
+	if links.ReportDir != "" {
+		if links.ReportDir, err = filepath.Abs(links.ReportDir); err != nil {
 			return 0, err
 		}
 	}
+	var result docs.CheckResult
 	if *staged {
-		return docs.CheckStaged(path, report, streams.Out), nil
+		if result, err = docs.InspectStaged(path); err != nil {
+			return 0, err
+		}
+	} else {
+		result = docs.Inspect(path)
 	}
-	return docs.Check(path, report, streams.Out), nil
+	if *format != "json" {
+		return result.Report(links, out), nil
+	}
+	if links.ReportDir != "" {
+		if err := docs.WriteLinkReports(links.ReportDir, result.Links.Scanned, result.Links.Errors); err != nil {
+			return 0, err
+		}
+	}
+	encoder := json.NewEncoder(streams.Out)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		return 0, err
+	}
+	if !result.OK {
+		return 1, nil
+	}
+	return 0, nil
 }

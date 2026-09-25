@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 func (f *fixture) git(args ...string) string {
@@ -39,7 +41,7 @@ func (f *fixture) checkStaged() result {
 	f.t.Helper()
 	before := f.git("diff", "--cached", "--binary")
 	var out bytes.Buffer
-	status := CheckStaged(f.root, LinkReport{}, &out)
+	status := CheckStaged(f.root, LinkReport{}, report.Text{W: &out})
 	if f.git("diff", "--cached", "--binary") != before {
 		f.t.Fatal("staged check must not change the index")
 	}
@@ -79,7 +81,7 @@ func TestCheckRejectsNonStandardSkillFrontmatter(t *testing.T) {
 	f := newFixture(t)
 	f.write(".agents/skills/Bad_Name/SKILL.md", "---\nname: other\ndisable-model-invocation: true\n---\n")
 	var out bytes.Buffer
-	if CheckSkills(f.root, &out) != 1 {
+	if CheckSkills(f.root, report.Text{W: &out}) != 1 {
 		t.Fatal("invalid skill must fail")
 	}
 	for _, want := range []string{"disable-model-invocation", "name must", "description must"} {

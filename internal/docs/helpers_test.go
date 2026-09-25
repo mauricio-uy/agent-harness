@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 type fixture struct {
@@ -107,7 +109,7 @@ func (r result) contains(t *testing.T, parts ...string) {
 
 func (f *fixture) sync(name string, apply, check bool) result {
 	var out bytes.Buffer
-	status, err := SyncSuite(name, f.root, apply, check, &out)
+	status, err := SyncSuite(name, f.root, apply, check, report.Text{W: &out})
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -121,10 +123,10 @@ func expectStatus(t *testing.T, r result, want int) {
 	}
 }
 
-func (f *fixture) links(report LinkReport) (result, []LinkError) {
+func (f *fixture) links(options LinkReport) (result, []LinkError) {
 	var out bytes.Buffer
 	count, errors := CheckLinks(f.root)
-	status := ReportLinks(count, errors, report, &out)
+	status := ReportLinks(count, errors, options, report.Text{W: &out})
 	return result{status, out.String()}, errors
 }
 

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -11,14 +10,18 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/mauricio-uy/agent-harness/internal/install"
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 func TestPrinterStylesKnownLinesAndCountsActions(t *testing.T) {
 	var out bytes.Buffer
 	p := NewPrinter(&out)
-	fmt.Fprint(p, "CREATE AGENTS.md\nCREATE docs/README.md\nSKIP   opencode.json (exists)\n")
-	fmt.Fprint(p, "LINK   .claude/skills/x -> .agents/skills/x (symlink)\nWARN   something\nplain line")
-	p.Flush()
+	p.Emit(report.Create, "AGENTS.md")
+	p.Emit(report.Create, "docs/README.md")
+	p.Emit(report.Skip, "opencode.json (exists)")
+	p.Emit(report.Link, ".claude/skills/x -> .agents/skills/x (symlink)")
+	p.Emit(report.Warn, "something")
+	p.Emit(report.Plain, "plain line")
 	styled := out.String()
 	if !strings.Contains(styled, "\x1b[") {
 		t.Fatal("known prefixes must be styled")
@@ -37,8 +40,8 @@ func TestPrinterStylesKnownLinesAndCountsActions(t *testing.T) {
 func TestPrinterHighlightsCheckResults(t *testing.T) {
 	var out bytes.Buffer
 	p := NewPrinter(&out)
-	fmt.Fprintln(p, "== links ==")
-	fmt.Fprintln(p, "Scanned 3 Markdown file(s); found 0 error(s).")
+	p.Emit(report.Section, "links")
+	p.Emit(report.Pass, "Scanned 3 Markdown file(s); found 0 error(s).")
 	if plain := ansi.Strip(out.String()); !strings.Contains(plain, "▸ links") || !strings.Contains(plain, "found 0 error(s)") {
 		t.Fatalf("unexpected output %q", plain)
 	}
@@ -93,5 +96,22 @@ func TestClientSelectorTogglesWithSpaceAndFilters(t *testing.T) {
 	press(field, text('/'), text('c'), text('o'), text('d'), text('e'), text('x'), tea.KeyPressMsg{Code: tea.KeyEnter}, text(' '))
 	if got := field.GetValue().([]string); !strings.Contains(strings.Join(got, ","), "codex") {
 		t.Fatalf("filtering must narrow the list to Codex, got %v\n%s", got, ansi.Strip(field.View()))
+	}
+}
+
+// Every kind renders to the same text as the plain sink once styling is
+// stripped, except sections, which the terminal marks with an arrow.
+func TestPrinterKeepsThePlainTextOfEveryKind(t *testing.T) {
+	for kind := report.Plain; kind <= report.Fail; kind++ {
+		var styled, plain bytes.Buffer
+		NewPrinter(&styled).Emit(kind, "text")
+		report.Text{W: &plain}.Emit(kind, "text")
+		want := plain.String()
+		if kind == report.Section {
+			want = "▸ text\n"
+		}
+		if got := ansi.Strip(styled.String()); got != want {
+			t.Errorf("kind %d: got %q, want %q", kind, got, want)
+		}
 	}
 }

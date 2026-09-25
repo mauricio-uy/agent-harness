@@ -1,13 +1,13 @@
 package ui
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 var (
@@ -17,39 +17,24 @@ var (
 	red     = lipgloss.NewStyle().Foreground(lipgloss.Red).Bold(true)
 	faint   = lipgloss.NewStyle().Faint(true)
 	heading = lipgloss.NewStyle().Bold(true)
-
-	sectionLine = regexp.MustCompile(`^== (.+) ==$`)
-	scannedLine = regexp.MustCompile(`^Scanned \d+ Markdown file\(s\); found (\d+) error\(s\)\.$`)
 )
 
-// labels maps an output prefix to the style of the prefix and the action it
-// counts in the summary; an empty action is not counted.
-var labels = []struct {
-	prefix string
-	style  lipgloss.Style
-	action string
-	whole  bool // style the whole line, not only the prefix
-}{
-	{"CREATE ", green, "created", false},
-	{"LINK ", cyan, "linked", false},
-	{"UPDATE ", cyan, "updated", false},
-	{"RECORD ", cyan, "", false},
-	{"INDEX ", cyan, "", false},
-	{"MOVE ", cyan, "", false},
-	{"SKIP ", faint, "skipped", true},
-	{"OK ", faint, "", true},
-	{"WARN ", yellow, "warnings", false},
-	{"ERROR:", red, "errors", false},
-	{"FILE ", heading, "", true},
+// actions names what each kind counts in the summary.
+var actions = map[report.Kind]string{
+	report.Create: "created",
+	report.Link:   "linked",
+	report.Update: "updated",
+	report.Skip:   "skipped",
+	report.Warn:   "warnings",
+	report.Error:  "errors",
 }
 
-// Printer styles each complete line written to it and counts actions for a
-// summary. Wrap its destination in a color profile writer, which strips the
-// styling when the output is not a terminal or NO_COLOR is set.
+// Printer styles each line by its kind and counts actions for a summary.
+// Wrap its destination in a color profile writer, which strips the styling
+// when the output is not a terminal or NO_COLOR is set.
 type Printer struct {
-	out     io.Writer
-	pending []byte
-	counts  map[string]int
+	out    io.Writer
+	counts map[string]int
 }
 
 // NewPrinter returns a Printer writing to out.
@@ -57,59 +42,43 @@ func NewPrinter(out io.Writer) *Printer {
 	return &Printer{out: out, counts: map[string]int{}}
 }
 
-func (p *Printer) Write(b []byte) (int, error) {
-	p.pending = append(p.pending, b...)
-	for {
-		i := bytes.IndexByte(p.pending, '\n')
-		if i < 0 {
-			return len(b), nil
-		}
-		line := string(p.pending[:i])
-		p.pending = p.pending[i+1:]
-		if _, err := io.WriteString(p.out, p.style(line)+"\n"); err != nil {
-			return 0, err
-		}
+// Emit writes one styled line.
+func (p *Printer) Emit(kind report.Kind, text string) {
+	if action := actions[kind]; action != "" {
+		p.counts[action]++
 	}
+	_, _ = io.WriteString(p.out, render(kind, text)+"\n")
 }
 
-// Flush writes any unterminated final line.
-func (p *Printer) Flush() {
-	if len(p.pending) > 0 {
-		_, _ = io.WriteString(p.out, p.style(string(p.pending)))
-		p.pending = nil
-	}
-}
-
-func (p *Printer) style(line string) string {
-	for _, l := range labels {
-		if !strings.HasPrefix(line, l.prefix) {
-			continue
-		}
-		if l.action != "" {
-			p.counts[l.action]++
-		}
-		if l.whole {
-			return l.style.Render(line)
-		}
-		label := strings.TrimRight(l.prefix, " ")
-		return l.style.Render(label) + line[len(label):]
-	}
-	if match := sectionLine.FindStringSubmatch(line); match != nil {
-		return heading.Render("▸ " + match[1])
-	}
-	if match := scannedLine.FindStringSubmatch(line); match != nil {
-		if match[1] == "0" {
-			return green.Render(line)
-		}
-		return red.Render(line)
-	}
-	switch {
-	case line == "Next steps:":
+func render(kind report.Kind, text string) string {
+	line := report.Line(kind, text)
+	switch kind {
+	case report.Create:
+		return label(green, kind, line)
+	case report.Link, report.Update, report.Record, report.Index:
+		return label(cyan, kind, line)
+	case report.Warn:
+		return label(yellow, kind, line)
+	case report.Error:
+		return label(red, kind, line)
+	case report.Skip, report.OK:
+		return faint.Render(line)
+	case report.File, report.Heading:
 		return heading.Render(line)
-	case strings.HasPrefix(line, "Documentation checks failed"):
+	case report.Section:
+		return heading.Render("▸ " + text)
+	case report.Pass:
+		return green.Render(line)
+	case report.Fail:
 		return red.Render(line)
 	}
 	return line
+}
+
+// label styles only the label at the start of line.
+func label(style lipgloss.Style, kind report.Kind, line string) string {
+	name := report.Label(kind)
+	return style.Render(name) + line[len(name):]
 }
 
 // Summary describes the counted actions, such as "40 created · 2 skipped".

@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 // symlink is replaceable so tests can exercise the junction fallback.
@@ -47,9 +49,9 @@ func (in *Installer) linkClaudeSkills() error {
 		case err != nil:
 			in.warn("%s: %v", rel, err)
 		case kind == "":
-			fmt.Fprintf(in.Out, "OK     %s\n", rel)
+			in.Out.Emit(report.OK, rel)
 		default:
-			fmt.Fprintf(in.Out, "LINK   %s -> .agents/skills/%s (%s)\n", rel, name, kind)
+			report.Emitf(in.Out, report.Link, "%s -> .agents/skills/%s (%s)", rel, name, kind)
 		}
 		linked = append(linked, "/"+rel)
 	}
@@ -126,6 +128,6 @@ func (in *Installer) updateIgnoreBlock(entries []string) error {
 	if err := os.WriteFile(target, []byte(updated), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintln(in.Out, "UPDATE .gitignore (skill links)")
+	in.Out.Emit(report.Update, ".gitignore (skill links)")
 	return nil
 }

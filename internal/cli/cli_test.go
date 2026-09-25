@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -84,5 +85,52 @@ func TestUsageErrors(t *testing.T) {
 	}
 	if status, _ := run(t, func() ([]string, error) { return nil, errors.New("boom") }, "init", "--root", root); status != 1 {
 		t.Error("a failed selection must fail")
+	}
+}
+
+// runJSON runs check --format json with stdout and stderr kept apart, as an
+// agent reading the JSON would.
+func runJSON(t *testing.T, args ...string) (int, map[string]any) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	status := Run(append([]string{"check", "--format", "json"}, args...), IO{Out: &out, Err: &errOut})
+	var result map[string]any
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("stdout must hold only JSON: %v\n%s\nstderr: %s", err, out.String(), errOut.String())
+	}
+	return status, result
+}
+
+func TestCheckJSONReportsEveryCheck(t *testing.T) {
+	root := t.TempDir()
+	if status, out := run(t, nil, "init", "--root", root, "--clients", "none"); status != 0 {
+		t.Fatalf("init: %s", out)
+	}
+	status, result := runJSON(t, "--root", root)
+	if status != 0 || result["ok"] != true {
+		t.Fatalf("a clean install must pass: %d %v", status, result)
+	}
+	for _, key := range []string{"suites", "skills", "links"} {
+		if result[key] == nil {
+			t.Errorf("missing %s: %v", key, result)
+		}
+	}
+	plans := result["suites"].(map[string]any)["plans"].(map[string]any)
+	if errs, ok := plans["errors"].([]any); !ok || len(errs) != 0 {
+		t.Errorf("errors must be an empty list, not null: %v", plans)
+	}
+
+	os.WriteFile(filepath.Join(root, "docs", "plans", "records.md"), []byte("[x](missing.md)\n"), 0o644)
+	status, result = runJSON(t, "--root", root)
+	if status != 1 || result["ok"] != false {
+		t.Fatalf("a broken link must fail: %d %v", status, result)
+	}
+	links := result["links"].(map[string]any)["errors"].([]any)
+	if len(links) != 1 || links[0].(map[string]any)["source"] != "docs/plans/records.md" {
+		t.Errorf("unexpected link errors: %v", links)
+	}
+	suiteErrors := result["suites"].(map[string]any)["plans"].(map[string]any)["errors"].([]any)
+	if len(suiteErrors) != 1 || suiteErrors[0].(map[string]any)["file"] != "docs/plans/records.md" {
+		t.Errorf("suite errors must name their file: %v", suiteErrors)
 	}
 }

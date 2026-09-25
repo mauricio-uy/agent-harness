@@ -11,6 +11,8 @@ import (
 
 	harness "github.com/mauricio-uy/agent-harness"
 	"github.com/mauricio-uy/agent-harness/internal/docs"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 var skills = []string{"implement-plan", "write-plan", "write-research-report", "write-runbook", "write-specification"}
@@ -18,7 +20,7 @@ var skills = []string{"implement-plan", "write-plan", "write-research-report", "
 func install(t *testing.T, root string, clients ...string) string {
 	t.Helper()
 	var out bytes.Buffer
-	in := &Installer{Root: root, Payload: harness.Payload, Out: &out}
+	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
 	if err := in.Init(clients); err != nil {
 		t.Fatalf("init: %v\n%s", err, out.String())
 	}
@@ -42,7 +44,7 @@ func present(root, rel string) bool {
 func check(t *testing.T, root string) {
 	t.Helper()
 	var out bytes.Buffer
-	if docs.Check(root, docs.LinkReport{}, &out) != 0 {
+	if docs.Check(root, docs.LinkReport{}, report.Text{W: &out}) != 0 {
 		t.Fatalf("installed project fails its checks:\n%s", out.String())
 	}
 }
@@ -130,7 +132,7 @@ func TestLinkRecreatesMissingAndBrokenLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	in := &Installer{Root: root, Payload: harness.Payload, Out: &out}
+	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
 	if err := in.Link(); err != nil {
 		t.Fatalf("link: %v\n%s", err, out.String())
 	}
@@ -145,7 +147,7 @@ func TestLinkRefusesToReplaceARealDirectory(t *testing.T) {
 	install(t, root)
 	os.MkdirAll(filepath.Join(root, ".claude", "skills", "implement-plan"), 0o755)
 	var out bytes.Buffer
-	in := &Installer{Root: root, Payload: harness.Payload, Out: &out}
+	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
 	if err := in.Init([]string{"claude-code"}); err == nil {
 		t.Fatalf("a real directory must not be replaced:\n%s", out.String())
 	}
@@ -193,7 +195,7 @@ func TestOpenCodeConfigWithCommentsIsReportedNotRewritten(t *testing.T) {
 	original := "{\n  // comment\n  \"model\": \"x\"\n}\n"
 	os.WriteFile(filepath.Join(root, "opencode.json"), []byte(original), 0o644)
 	var out bytes.Buffer
-	in := &Installer{Root: root, Payload: harness.Payload, Out: &out}
+	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
 	if err := in.Init([]string{"opencode"}); err == nil || !strings.Contains(out.String(), "not plain JSON") {
 		t.Fatalf("expected a warning:\n%s", out.String())
 	}

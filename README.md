@@ -100,6 +100,7 @@ These are the commands you'll use day to day:
 | `harness sync` | Checks the documents and shows which indexes would change. Add `--apply` to update them. |
 | `harness check` | Runs every check without changing anything. |
 | `harness check --staged` | Runs the same checks on what you're about to commit. The Git hook uses this one. |
+| `harness check --format json` | Prints the results as a single JSON document, so an agent or a script can read them. |
 | `harness link` | Recreates the skill links for the agents you chose. |
 
 What `harness check` looks at:

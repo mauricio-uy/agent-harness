@@ -2,11 +2,12 @@ package docs
 
 import (
 	"fmt"
-	"io"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 // DocType describes one document type. Its directory under docs/ holds a
@@ -277,8 +278,8 @@ type replacement struct {
 	kind string
 }
 
-func (s *Suite) relationErrors(records []record, catalog map[string][]record) []string {
-	var errors []string
+func (s *Suite) relationErrors(records []record, catalog map[string][]record) []Issue {
+	var errors []Issue
 	graph := map[string]map[string]bool{}
 	var order []string
 	replacements := map[string][]replacement{}
@@ -296,10 +297,10 @@ func (s *Suite) relationErrors(records []record, catalog map[string][]record) []
 				matches := catalog[target]
 				switch {
 				case len(matches) != 1:
-					errors = append(errors, fmt.Sprintf("%s: %s must resolve to one document: %s", r.rel, field, target))
+					errors = append(errors, Issue{r.rel, fmt.Sprintf("%s must resolve to one document: %s", field, target)})
 				case field != "supersedes":
 				case matches[0].kind != r.kind:
-					errors = append(errors, fmt.Sprintf("%s: supersedes must reference the same type: %s", r.rel, target))
+					errors = append(errors, Issue{r.rel, "supersedes must reference the same type: " + target})
 				default:
 					graph[identifier][target] = true
 					replacements[target] = append(replacements[target], replacement{r.data, r.kind})
@@ -346,7 +347,7 @@ func (s *Suite) relationErrors(records []record, catalog map[string][]record) []
 			}
 		}
 		slices.Sort(involved)
-		errors = append(errors, "supersedes cycle detected; involved or downstream IDs: "+strings.Join(involved, ", "))
+		errors = append(errors, Issue{"", "supersedes cycle detected; involved or downstream IDs: " + strings.Join(involved, ", ")})
 	}
 	for _, r := range records {
 		identifier, ok := r.data["id"].(string)
@@ -359,7 +360,7 @@ func (s *Suite) relationErrors(records []record, catalog map[string][]record) []
 			return (slices.Contains(s.approvedStates(successor.kind), status) || status == "superseded" || status == "retired") && revisionOK
 		})
 		if !approved {
-			errors = append(errors, r.rel+": superseded document requires an approved replacement")
+			errors = append(errors, Issue{r.rel, "superseded document requires an approved replacement"})
 		}
 	}
 	return errors
@@ -433,19 +434,19 @@ func titleCase(status string) string {
 
 // discover returns the records of one type and any structural errors. Only
 // README.md and the generated indexes may sit beside records/.
-func discover(root string, t DocType) ([]record, []string) {
+func discover(root string, t DocType) ([]record, []Issue) {
 	directory := filepath.Join(root, "docs", filepath.FromSlash(t.Folder))
 	records := filepath.Join(directory, RecordsDir)
 	if !within(root, directory) || isFile(directory) {
-		return nil, []string{relSlash(root, directory) + ": invalid document directory"}
+		return nil, []Issue{{relSlash(root, directory), "invalid document directory"}}
 	}
 	var found []record
-	var errors []string
+	var errors []Issue
 	allowed := map[string]bool{"README.md": true}
 	for _, ix := range indexesOf(t) {
 		allowed[ix.name+".md"] = true
 		if path := filepath.Join(directory, ix.name+".md"); isSymlink(path) || notRegular(path) {
-			errors = append(errors, relSlash(root, path)+": index must be a regular file")
+			errors = append(errors, Issue{relSlash(root, path), "index must be a regular file"})
 		}
 	}
 	for _, path := range markdownFiles(directory) {
@@ -455,15 +456,15 @@ func discover(root string, t DocType) ([]record, []string) {
 		case filepath.Dir(path) == directory && allowed[filepath.Base(path)]:
 			continue
 		case strings.HasPrefix(relSlash(directory, path), RecordsDir+"/") && !inRecords:
-			errors = append(errors, rel+": document must be a regular file within "+RecordsDir+"/")
+			errors = append(errors, Issue{rel, "document must be a regular file within " + RecordsDir + "/"})
 			continue
 		case !inRecords:
-			errors = append(errors, fmt.Sprintf("%s: documents belong in docs/%s/%s/", rel, t.Folder, RecordsDir))
+			errors = append(errors, Issue{rel, fmt.Sprintf("documents belong in docs/%s/%s/", t.Folder, RecordsDir)})
 			continue
 		}
 		data, err := ReadMetadata(path)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", rel, err))
+			errors = append(errors, Issue{rel, err.Error()})
 			continue
 		}
 		found = append(found, record{path, rel, data, t.Kind})
@@ -471,13 +472,36 @@ func discover(root string, t DocType) ([]record, []string) {
 	return found, errors
 }
 
-// Sync validates the suite's documents and regenerates one index per state.
-// Documents never move: a status change moves only a row between indexes. It
-// writes only with apply; with check it fails when an index is out of date.
-// Any validation error aborts before the first write.
-func (s *Suite) Sync(root string, apply, check bool, out io.Writer) int {
+// Issue is one validation error, located in File when it concerns one file.
+type Issue struct {
+	File    string `json:"file,omitempty"`
+	Message string `json:"message"`
+}
+
+func (i Issue) String() string {
+	if i.File == "" {
+		return i.Message
+	}
+	return i.File + ": " + i.Message
+}
+
+// SyncResult is the state of one suite: its validation errors, or the
+// indexes that differ from what its documents generate.
+type SyncResult struct {
+	Documents int     `json:"documents"`
+	Errors    []Issue `json:"errors"`
+	// StaleIndexes lists the indexes, relative to the root, that must be regenerated.
+	StaleIndexes []string `json:"stale_indexes"`
+	updates      []update
+}
+
+type update struct{ path, content string }
+
+// Inspect validates the suite's documents and computes its indexes without
+// writing anything. Indexes are computed only when there are no errors.
+func (s *Suite) Inspect(root string) SyncResult {
 	var records []record
-	var errors []string
+	var errors []Issue
 	catalog := map[string][]record{}
 	for _, t := range s.Types {
 		found, structural := discover(root, t)
@@ -489,7 +513,7 @@ func (s *Suite) Sync(root string, apply, check bool, out io.Writer) int {
 		for _, r := range found {
 			records = append(records, r)
 			for _, e := range validate(r, t, s) {
-				errors = append(errors, r.rel+": "+e)
+				errors = append(errors, Issue{r.rel, e})
 			}
 			if identifier, ok := r.data["id"].(string); ok {
 				catalog[identifier] = append(catalog[identifier], r)
@@ -515,15 +539,15 @@ func (s *Suite) Sync(root string, apply, check bool, out io.Writer) int {
 			}
 			rel := relSlash(root, path)
 			if !within(root, path) {
-				errors = append(errors, rel+": referenced document resolves outside repository")
+				errors = append(errors, Issue{rel, "referenced document resolves outside repository"})
 				continue
 			}
 			data, err := ReadMetadata(path)
 			switch {
 			case err != nil:
-				errors = append(errors, fmt.Sprintf("%s: %v", rel, err))
+				errors = append(errors, Issue{rel, err.Error()})
 			case data["id"] != match[1]:
-				errors = append(errors, fmt.Sprintf("%s: referenced document ID must match filename: %s", rel, match[1]))
+				errors = append(errors, Issue{rel, "referenced document ID must match filename: " + match[1]})
 			default:
 				catalog[match[1]] = append(catalog[match[1]], record{path, rel, data, ""})
 			}
@@ -540,54 +564,69 @@ func (s *Suite) Sync(root string, apply, check bool, out io.Writer) int {
 			for _, m := range matches {
 				paths = append(paths, m.rel)
 			}
-			errors = append(errors, fmt.Sprintf("duplicate ID %s: %s", identifier, strings.Join(paths, ", ")))
+			errors = append(errors, Issue{"", fmt.Sprintf("duplicate ID %s: %s", identifier, strings.Join(paths, ", "))})
 		}
 	}
 	errors = append(errors, s.relationErrors(records, catalog)...)
+	result := SyncResult{Documents: len(records), Errors: errors, StaleIndexes: []string{}}
 	if len(errors) > 0 {
-		return reportErrors(out, errors)
+		return result
 	}
-	type update struct{ path, content string }
-	var updates []update
+	result.Errors = []Issue{}
 	for _, t := range s.Types {
 		directory := filepath.Join(root, "docs", filepath.FromSlash(t.Folder))
 		for _, ix := range indexesOf(t) {
 			path := filepath.Join(directory, ix.name+".md")
 			content := s.indexContent(t, ix, records, directory)
 			if current, ok := readText(path); !ok || current != content {
-				updates = append(updates, update{path, content})
+				result.updates = append(result.updates, update{path, content})
+				result.StaleIndexes = append(result.StaleIndexes, relSlash(root, path))
 			}
 		}
 	}
-	for _, u := range updates {
-		fmt.Fprintln(out, "INDEX "+relSlash(root, u.path))
+	return result
+}
+
+// Sync validates the suite's documents and regenerates one index per state.
+// Documents never move: a status change moves only a row between indexes. It
+// writes only with apply; with check it fails when an index is out of date.
+// Any validation error aborts before the first write.
+func (s *Suite) Sync(root string, apply, check bool, out report.Sink) int {
+	result := s.Inspect(root)
+	if !result.Report(out, apply) {
+		return 1
 	}
 	if apply {
-		for _, u := range updates {
+		for _, u := range result.updates {
 			if err := writeText(u.path, u.content); err != nil {
-				fmt.Fprintf(out, "ERROR: %v\n", err)
+				report.Emitf(out, report.Error, "%v", err)
 				return 1
 			}
 		}
 	}
-	fmt.Fprintf(out, "%d document(s); %d index update(s). %s\n", len(records), len(updates), modeLabel(apply))
-	if check && len(updates) > 0 {
+	if check && len(result.StaleIndexes) > 0 {
 		return 1
 	}
 	return 0
 }
 
-func reportErrors(out io.Writer, errors []string) int {
-	for _, e := range errors {
-		fmt.Fprintln(out, "ERROR: "+e)
+// Report writes the result and reports whether it has no validation errors.
+// With applied, the summary says the stale indexes were written.
+func (r SyncResult) Report(out report.Sink, applied bool) bool {
+	if len(r.Errors) > 0 {
+		for _, e := range r.Errors {
+			out.Emit(report.Error, e.String())
+		}
+		report.Emitf(out, report.Plain, "%d validation error(s); no files changed.", len(r.Errors))
+		return false
 	}
-	fmt.Fprintf(out, "%d validation error(s); no files changed.\n", len(errors))
-	return 1
-}
-
-func modeLabel(apply bool) string {
-	if apply {
-		return "Applied."
+	for _, path := range r.StaleIndexes {
+		out.Emit(report.Index, path)
 	}
-	return "Read-only."
+	mode := "Read-only."
+	if applied {
+		mode = "Applied."
+	}
+	report.Emitf(out, report.Plain, "%d document(s); %d index update(s). %s", r.Documents, len(r.StaleIndexes), mode)
+	return true
 }

@@ -2,12 +2,13 @@ package docs
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"unicode/utf8"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 // skillFields are the frontmatter fields defined by the Agent Skills specification
@@ -79,32 +80,50 @@ func limitNote(limit int) string {
 	return fmt.Sprintf(" of at most %d characters", limit)
 }
 
-// CheckSkills validates every skill under .agents/skills against the Agent Skills specification.
-func CheckSkills(root string, out io.Writer) int {
+// SkillResult is the outcome of validating the skills.
+type SkillResult struct {
+	Count  int     `json:"count"`
+	Errors []Issue `json:"errors"`
+}
+
+// InspectSkills validates every skill under .agents/skills against the Agent Skills specification.
+func InspectSkills(root string) SkillResult {
+	result := SkillResult{Errors: []Issue{}}
 	base := filepath.Join(root, ".agents", "skills")
 	entries, err := os.ReadDir(base)
 	if err != nil {
-		fmt.Fprintf(out, "ERROR: .agents/skills: %v\n", err)
-		return 1
+		result.Errors = append(result.Errors, Issue{".agents/skills", err.Error()})
+		return result
 	}
-	var errors []string
-	count := 0
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
-		count++
+		result.Count++
 		for _, e := range validateSkill(filepath.Join(base, entry.Name())) {
-			errors = append(errors, fmt.Sprintf(".agents/skills/%s: %s", entry.Name(), e))
+			result.Errors = append(result.Errors, Issue{".agents/skills/" + entry.Name(), e})
 		}
 	}
-	if len(errors) > 0 {
-		for _, e := range errors {
-			fmt.Fprintln(out, "ERROR: "+e)
-		}
-		fmt.Fprintf(out, "%d skill(s); %d error(s).\n", count, len(errors))
-		return 1
+	return result
+}
+
+// Report writes the result and reports whether every skill is valid.
+func (r SkillResult) Report(out report.Sink) bool {
+	for _, e := range r.Errors {
+		out.Emit(report.Error, e.String())
 	}
-	fmt.Fprintf(out, "%d skill(s); frontmatter follows the Agent Skills specification.\n", count)
-	return 0
+	if len(r.Errors) > 0 {
+		report.Emitf(out, report.Plain, "%d skill(s); %d error(s).", r.Count, len(r.Errors))
+		return false
+	}
+	report.Emitf(out, report.Plain, "%d skill(s); frontmatter follows the Agent Skills specification.", r.Count)
+	return true
+}
+
+// CheckSkills validates the skills and reports the result; it returns the exit status.
+func CheckSkills(root string, out report.Sink) int {
+	if InspectSkills(root).Report(out) {
+		return 0
+	}
+	return 1
 }

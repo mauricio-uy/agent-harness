@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
 // mergeOpenCodeConfig adds the harness's skill permissions to opencode.json.
@@ -29,7 +31,7 @@ func (in *Installer) mergeOpenCodeConfig() error {
 		if err := os.WriteFile(target, template, 0o644); err != nil {
 			return err
 		}
-		fmt.Fprintln(in.Out, "CREATE opencode.json")
+		in.Out.Emit(report.Create, "opencode.json")
 		return nil
 	}
 	if err != nil {
@@ -63,7 +65,7 @@ func (in *Installer) mergeOpenCodeConfig() error {
 		}
 	}
 	if added == 0 {
-		fmt.Fprintln(in.Out, "OK     opencode.json")
+		in.Out.Emit(report.OK, "opencode.json")
 		return nil
 	}
 	var buffer bytes.Buffer
@@ -72,7 +74,7 @@ func (in *Installer) mergeOpenCodeConfig() error {
 	if err := os.WriteFile(target, buffer.Bytes(), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(in.Out, "UPDATE opencode.json (%d permission.skill entries)\n", added)
+	report.Emitf(in.Out, report.Update, "opencode.json (%d permission.skill entries)", added)
 	return nil
 }
 
