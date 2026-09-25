@@ -4,7 +4,7 @@ Use [the runbook template](../assets/runbook-template.md). This reference define
 
 ## Identity and frontmatter
 
-Store records in `docs/runbooks/records/<ID>-<short-slug>.md`, using IDs such as `RUN-000001`. Allocate the next unused six-digit number across current and historical records; recheck before saving concurrent work. Keep IDs and paths stable when status changes.
+Store records in `docs/runbooks/records/<ID>-<short-slug>.md`, using IDs such as `RUN-000001`. Get the next free ID with `harness id runbook`, which counts current and historical records. Recheck before saving concurrent work. Keep IDs and paths stable when status changes.
 
 | Field | Required value or meaning |
 | --- | --- |
@@ -20,7 +20,7 @@ Store records in `docs/runbooks/records/<ID>-<short-slug>.md`, using IDs such as
 | `related` | Unique existing document or plan IDs; `[]` if none apply. |
 | `supersedes` | Optional list of existing runbook IDs replaced by this record; defaults to `[]`. |
 
-Approval fields must be populated together. An approval revision is positive and cannot exceed the current revision; its date falls between creation and update. Metadata records the human's decision, not independent proof or an invented conversation reference. Relations must resolve unambiguously; no self-references, duplicate IDs across relation lists, or replacement cycles. Link useful references in the body as well.
+Take every date, including validation dates, from `harness date`, never from memory. Approval fields must be populated together. An approval revision is positive and cannot exceed the current revision; its date falls between creation and update. Metadata records the human's decision, not independent proof or an invented conversation reference. Relations must resolve unambiguously; no self-references, duplicate IDs across relation lists, or replacement cycles. Link useful references in the body as well.
 
 ## Review lifecycle
 

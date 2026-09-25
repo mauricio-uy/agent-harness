@@ -4,7 +4,9 @@ These rules apply to all agents and subagents using this harness.
 
 ## Implementation entry point
 
-- Implementation requires a human-approved plan and the `implement-plan` skill. If approval is missing, suggest `write-plan` and wait for the human to invoke it.
+- Before changing code, judge the size of the request. Recommend `write-plan` when the change is large, spans several components, touches public behavior, architecture, dependencies, data, or operations, or leaves decisions open. Recommend implementing directly when it is small, local, and unambiguous. Give the recommendation in one or two sentences and wait for the human's choice. The human always has the final word.
+- Carry out an approved plan through the `implement-plan` skill. When the human chooses to go ahead without a plan, implement only what was asked, within the authorization boundaries below.
+- Never invoke `write-plan` on your own. Suggest it and let the human invoke it.
 
 ## Authorization boundaries
 

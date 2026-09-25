@@ -11,7 +11,7 @@
 
 Use one document per decision, actor goal, or independently verifiable requirement. A use case may reference several requirements; an ADR may explain an implementation choice that satisfies them. Do not create all four types by default. Ask before resolving a genuine classification ambiguity.
 
-Create destination directories when the first document is needed. Name files `<ID>-<short-slug>.md`, with IDs such as `ADR-000001`. Allocate the next unused six-digit number within the type by searching existing records, including rejected and superseded ones. Recheck before saving concurrent work. Keep IDs and filenames stable; changing status does not move these documents. Plan synchronization applies only to `docs/plans/`.
+Create destination directories when the first document is needed. Name files `<ID>-<short-slug>.md`, with IDs such as `ADR-000001`. Get the next free ID with `harness id <type>`, such as `harness id adr`. It counts every record of the type, including rejected and superseded ones. Recheck before saving concurrent work. Keep IDs and filenames stable; changing status does not move these documents. Plan synchronization applies only to `docs/plans/`.
 
 ## Directories and indexes
 
@@ -39,7 +39,7 @@ Read only the index of the relevant type and status, or search `records/` by ID;
 | `related` | List of unique existing document or plan IDs; use `[]` when none apply. |
 | `supersedes` | Optional list of existing IDs of the same type being replaced; defaults to `[]`. |
 
-Approval fields are both null or both populated. An approval revision must be positive and cannot exceed the current revision; its date must fall between creation and update. This records the human's decision, not independently verifiable identity or a conversation URL. Never fabricate a durable reference to the conversation.
+Approval fields are both null or both populated. An approval revision must be positive and cannot exceed the current revision; its date must fall between creation and update. Take every date from `harness date`, never from memory. This records the human's decision, not independently verifiable identity or a conversation URL. Never fabricate a durable reference to the conversation.
 
 Do not repeat IDs across relation lists, refer to the document itself, or create replacement cycles. Relations do not imply approval or implementation. Use Markdown links in the body for useful navigation; IDs in frontmatter preserve identity if paths change. Confirm every relation resolves to one document.
 

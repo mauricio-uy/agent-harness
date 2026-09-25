@@ -3,7 +3,7 @@
 ## Identity and metadata
 
 Store plans at `docs/plans/records/PLAN-<six-digit-number>-<slug>.md`. A plan never moves: its status decides which generated index in `docs/plans/` lists it, and `docs/plans/README.md` links every index.
-Choose the next unused number by searching all states; recheck uniqueness before saving when work is concurrent. Never reuse an ID or rename an existing plan merely because its title changes.
+Get the next free ID with `harness id plan`, which counts plans in every state. Recheck uniqueness before saving when work is concurrent. Never reuse an ID or rename an existing plan merely because its title changes.
 
 The YAML frontmatter is the source of truth. Each plan has:
 
@@ -22,6 +22,7 @@ The YAML frontmatter is the source of truth. Each plan has:
 | `supersedes` | Optional list of existing plan IDs this plan replaces; defaults to `[]`. |
 
 Approval fields are both null or both populated. Approval revision cannot exceed the current revision. Approval dates must fall between creation and update dates.
+Take every date, including those of execution notes, from `harness date`. Never write a date from memory.
 Do not repeat IDs across relation lists, refer to the plan itself, or create replacement cycles. Every relation must resolve to exactly one document.
 The record documents human approval; it is not independent evidence of identity or authorization. Do not invent conversation links or signatures.
 

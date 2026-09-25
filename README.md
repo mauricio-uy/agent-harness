@@ -8,7 +8,7 @@ The skills follow the [Agent Skills specification](https://agentskills.io/specif
 
 The agent writes the document and you decide. When you ask for a plan, a specification, a research report or a runbook, the agent drafts it and waits for your review. Your approval is recorded in the document itself, tied to the revision you read.
 
-Code only gets written from an approved plan. The rules in `AGENTS.md` ask every agent to implement through the `implement-plan` skill, and to check with you before going beyond what you approved. The `write-plan` skill only runs when you call it.
+You decide whether a change needs a plan. Before touching code, the agent looks at the size of what you asked for and recommends either writing a plan or going straight to the change. You have the final word. Approved plans are carried out through the `implement-plan` skill, and the agent checks with you before going beyond what you approved. The `write-plan` skill only runs when you call it.
 
 Progress is saved in the plan. `implement-plan` works in small steps, writing tests first, and keeps a checkpoint inside the plan. If a session ends halfway, the next one knows where to pick up.
 
@@ -102,6 +102,8 @@ These are the commands you'll use day to day:
 | `harness check --staged` | Runs the same checks on what you're about to commit. The Git hook uses this one. |
 | `harness check --format json` | Prints the results as a single JSON document, so an agent or a script can read them. |
 | `harness link` | Recreates the skill links for the agents you chose. |
+| `harness id plan` | Prints the next free ID for a type of document, such as `PLAN-000004`. The skills use it so agents don't pick IDs by hand. |
+| `harness date` | Prints today's date from your system. The skills use it for every date they write. |
 
 What `harness check` looks at:
 

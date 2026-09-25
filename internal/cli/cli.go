@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/colorprofile"
 
@@ -24,6 +25,9 @@ import (
 // Version is set at build time.
 var Version = "dev"
 
+// now is replaceable so tests can fix the date.
+var now = time.Now
+
 const usage = `harness installs and maintains a documentation-first agent harness.
 
 Usage:
@@ -33,9 +37,13 @@ Usage:
                                                  validate documents and regenerate indexes
   harness check  [--root DIR] [--staged] [--format text|github|json] [--report-dir DIR]
                                                  run every read-only check
+  harness id     [--root DIR] TYPE                print the next free ID of a document type
+  harness date                                    print today's date as YYYY-MM-DD
   harness version
 
 Suites: plans, specifications, research, runbooks (default: all).
+Types: plan, adr, use-case, functional-requirement, non-functional-requirement,
+research, runbook, or their ID prefixes.
 Clients: claude-code, codex, opencode, pi; "none" installs only the base.
 `
 
@@ -68,6 +76,10 @@ func Run(args []string, streams IO) int {
 		status, err = runSync(rest, streams, printer)
 	case "check":
 		status, err = runCheck(rest, streams, printer)
+	case "id":
+		err = runID(rest, streams)
+	case "date":
+		err = runDate(rest, streams)
 	case "version", "--version":
 		fmt.Fprintln(streams.Out, Version)
 	case "help", "-h", "--help":
@@ -248,4 +260,39 @@ func runCheck(args []string, streams IO, out report.Sink) (int, error) {
 		return 1, nil
 	}
 	return 0, nil
+}
+
+// runID prints the next free ID of a document type, for an agent to use as is.
+func runID(args []string, streams IO) error {
+	flags, root := newFlags("id", streams)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 1 {
+		return fmt.Errorf("name one document type: %s", strings.Join(docs.TypeNames(), ", "))
+	}
+	path, err := absolute(*root)
+	if err != nil {
+		return err
+	}
+	id, err := docs.NextID(path, flags.Arg(0))
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(streams.Out, id)
+	return nil
+}
+
+// runDate prints the system's local date, so an agent never guesses it.
+func runDate(args []string, streams IO) error {
+	flags := flag.NewFlagSet("harness date", flag.ContinueOnError)
+	flags.SetOutput(streams.Err)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("date takes no arguments")
+	}
+	fmt.Fprintln(streams.Out, now().Format(time.DateOnly))
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mauricio-uy/agent-harness/internal/ui"
 )
@@ -132,5 +133,24 @@ func TestCheckJSONReportsEveryCheck(t *testing.T) {
 	suiteErrors := result["suites"].(map[string]any)["plans"].(map[string]any)["errors"].([]any)
 	if len(suiteErrors) != 1 || suiteErrors[0].(map[string]any)["file"] != "docs/plans/records.md" {
 		t.Errorf("suite errors must name their file: %v", suiteErrors)
+	}
+}
+
+func TestIDAndDatePrintOneBareLine(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "docs", "plans", "records"), 0o755)
+	os.WriteFile(filepath.Join(root, "docs", "plans", "records", "PLAN-000003-x.md"), nil, 0o644)
+	if status, out := run(t, nil, "id", "--root", root, "plan"); status != 0 || out != "PLAN-000004\n" {
+		t.Fatalf("id: %d %q", status, out)
+	}
+	now = func() time.Time { return time.Date(2026, 3, 7, 23, 59, 0, 0, time.Local) }
+	t.Cleanup(func() { now = time.Now })
+	if status, out := run(t, nil, "date"); status != 0 || out != "2026-03-07\n" {
+		t.Fatalf("date: %d %q", status, out)
+	}
+	for _, args := range [][]string{{"id", "--root", root}, {"id", "--root", root, "memo"}, {"id", "--root", root, "plan", "adr"}, {"date", "extra"}} {
+		if status, _ := run(t, nil, args...); status != 1 {
+			t.Errorf("%v must fail", args)
+		}
 	}
 }

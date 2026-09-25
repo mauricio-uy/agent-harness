@@ -4,7 +4,7 @@ Use [the research template](../assets/research-template.md). This reference defi
 
 ## Identity and frontmatter
 
-Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/research/records/`. Allocate the next unused six-digit number, including historical records; recheck before saving concurrent work. Status changes never move files.
+Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/research/records/`. Get the next free ID with `harness id research`, which counts historical records too. Recheck before saving concurrent work. Status changes never move files.
 
 | Field | Required value or meaning |
 | --- | --- |
@@ -18,7 +18,7 @@ Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/res
 | `related` | Unique existing document or plan IDs; use `[]` when none apply. |
 | `supersedes` | Optional list of existing research IDs this record replaces; defaults to `[]`. |
 
-An approval revision is positive and cannot exceed the current revision; its date falls between creation and update. `approved` requires approval of the current revision. Metadata records a human decision, not independent proof or an invented conversation reference. Do not repeat IDs across relation lists, self-reference, or create replacement cycles. Other document types can supply evidence or context; their lifecycle and indexes are outside this skill's responsibility.
+Take every date from `harness date`, never from memory. An approval revision is positive and cannot exceed the current revision; its date falls between creation and update. `approved` requires approval of the current revision. Metadata records a human decision, not independent proof or an invented conversation reference. Do not repeat IDs across relation lists, self-reference, or create replacement cycles. Other document types can supply evidence or context; their lifecycle and indexes are outside this skill's responsibility.
 
 ## Index
 
