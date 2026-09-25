@@ -93,6 +93,8 @@ harness init
 git config core.hooksPath .githooks
 ```
 
+If your project already runs hooks with another tool, such as husky or pre-commit, skip the second line and read [Git hook](#git-hook) first.
+
 `init` asks which agents to set up. Use the arrows to move, space to select and enter to confirm. You can also skip the question with `--clients claude-code,codex`. It never overwrites a file you already have. If something is in the way, it tells you and leaves it alone.
 
 Once it's installed, ask your agent to fill in `docs/overview.md` with a short description of the project. The skill links only exist on your machine, so anyone else who clones the project runs `harness link` once.
