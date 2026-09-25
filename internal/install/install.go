@@ -290,8 +290,15 @@ func (in *Installer) nextSteps(clients []string) {
 	report.Blank(in.Out)
 	in.Out.Emit(report.Heading, "Next steps:")
 	in.Out.Emit(report.Plain, "  - Ask your agent to complete docs/overview.md (Purpose and Structure).")
-	in.Out.Emit(report.Plain, "  - Enable the pre-commit check in each clone: git config core.hooksPath .githooks")
+	setup := hookSetup(in.Root)
+	switch {
+	case len(setup.others()) > 0:
+		in.Out.Emit(report.Warn, setup.managersWarning())
+	case setup.hooksPath != ".githooks":
+		in.Out.Emit(report.Plain, "  - Enable the pre-commit check in each clone: git config core.hooksPath .githooks")
+	}
 	if slices.Contains(clients, "claude-code") {
 		in.Out.Emit(report.Plain, "  - Skill links are not committed; other clones run: harness link")
 	}
+	in.Out.Emit(report.Plain, "  - Check the setup of a clone at any time: harness doctor")
 }

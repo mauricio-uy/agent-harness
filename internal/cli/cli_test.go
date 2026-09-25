@@ -195,3 +195,14 @@ func TestUpgradePreviewsThenApplies(t *testing.T) {
 		t.Fatal("apply must restore the file")
 	}
 }
+
+func TestDoctorFailsOnlyOnProblems(t *testing.T) {
+	root := t.TempDir()
+	if status, out := run(t, nil, "doctor", "--root", root); status != 1 || !strings.Contains(out, "run harness init") {
+		t.Fatalf("no installation: %d\n%s", status, out)
+	}
+	run(t, nil, "init", "--root", root, "--clients", "none")
+	if status, out := run(t, nil, "doctor", "--root", root); status != 0 || !strings.Contains(out, "WARN") {
+		t.Fatalf("warnings alone must not fail: %d\n%s", status, out)
+	}
+}

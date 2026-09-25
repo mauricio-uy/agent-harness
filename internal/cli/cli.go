@@ -52,6 +52,7 @@ Usage:
   harness init   [--root DIR] [--clients LIST]   install the harness and client files
   harness link   [--root DIR]                    recreate client skill links in this clone
   harness upgrade [--root DIR] [--apply]         update installed files the project has not changed
+  harness doctor [--root DIR]                    check how the harness is set up in this clone
   harness sync   [--root DIR] [--apply|--check] [SUITE...]
                                                  validate documents and regenerate indexes
   harness check  [--root DIR] [--staged] [--format text|github|json] [--report-dir DIR]
@@ -90,6 +91,9 @@ func Run(args []string, streams IO) int {
 		summarize(printer, err)
 	case "link":
 		err = runLink(rest, streams, printer)
+		summarize(printer, err)
+	case "doctor":
+		err = runDoctor(rest, streams, printer)
 		summarize(printer, err)
 	case "upgrade":
 		var applied bool
@@ -338,4 +342,17 @@ func runUpgrade(args []string, streams IO, out report.Sink) (bool, error) {
 	}
 	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
 	return *apply, installer.Upgrade(*apply)
+}
+
+func runDoctor(args []string, streams IO, out report.Sink) error {
+	flags, root := newFlags("doctor", streams)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	path, err := absolute(*root)
+	if err != nil {
+		return err
+	}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
+	return installer.Doctor()
 }

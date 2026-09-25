@@ -28,19 +28,12 @@ const (
 // keeps the adapter instead, so its Claude-specific frontmatter stays out of
 // the shared skill.
 func (in *Installer) linkClaudeSkills() error {
-	entries, err := os.ReadDir(filepath.Join(in.Root, ".agents", "skills"))
+	skills, err := in.claudeLinkedSkills()
 	if err != nil {
 		return err
 	}
 	var linked []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if _, err := fs.Stat(in.Payload, path.Join("template-clients/claude-code/.claude/skills", name)); err == nil {
-			continue
-		}
+	for _, name := range skills {
 		rel := ".claude/skills/" + name
 		link := filepath.Join(in.Root, ".claude", "skills", name)
 		target := filepath.Join(in.Root, ".agents", "skills", name)
@@ -56,6 +49,26 @@ func (in *Installer) linkClaudeSkills() error {
 		linked = append(linked, "/"+rel)
 	}
 	return in.updateIgnoreBlock(linked)
+}
+
+// claudeLinkedSkills lists the skills Claude Code reaches through a link:
+// every skill in .agents/skills without a Claude Code adapter in the payload.
+func (in *Installer) claudeLinkedSkills() ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(in.Root, ".agents", "skills"))
+	if err != nil {
+		return nil, err
+	}
+	var skills []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := fs.Stat(in.Payload, path.Join("template-clients/claude-code/.claude/skills", entry.Name())); err == nil {
+			continue
+		}
+		skills = append(skills, entry.Name())
+	}
+	return skills, nil
 }
 
 // ensureLink makes link point at the target directory. It returns the kind of

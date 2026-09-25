@@ -103,6 +103,7 @@ These are the commands you'll use day to day:
 | `harness check --format json` | Prints the results as a single JSON document, so an agent or a script can read them. |
 | `harness link` | Recreates the skill links for the agents you chose. |
 | `harness upgrade` | Shows what a newer version of the harness would change in your project. Add `--apply` to do it. |
+| `harness doctor` | Checks how the harness is set up in this clone: the installation record, the Git hook and the agents' files. |
 | `harness id plan` | Prints the next free ID for a type of document, such as `PLAN-000004`. The skills use it so agents don't pick IDs by hand. |
 | `harness date` | Prints today's date from your system. The skills use it for every date they write. |
 
@@ -114,6 +115,42 @@ What `harness check` looks at:
 - Every index matches the documents, and every document is inside `records/`.
 - The skills follow the Agent Skills specification.
 - Every local link and heading anchor works. If a link points to a document that was moved, it suggests where it went.
+
+## Git hook
+
+`harness init` adds `.githooks/pre-commit`, which runs `harness check --staged` before each commit. Turn it on once per clone with `git config core.hooksPath .githooks`.
+
+If your project already uses another tool for Git hooks, setting `core.hooksPath` would stop that tool's hooks from running. So `harness init` and `harness doctor` look for husky, lefthook, the pre-commit framework, a hook in `.git/hooks` and a `core.hooksPath` that points somewhere else. When they find one, they warn you instead of suggesting `core.hooksPath`. In that case, add the check to the tool you already use.
+
+With husky, add this line to `.husky/pre-commit`:
+
+```sh
+harness check --staged
+```
+
+With lefthook, in `lefthook.yml`:
+
+```yaml
+pre-commit:
+  commands:
+    harness:
+      run: harness check --staged
+```
+
+With the pre-commit framework, in `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: harness
+        name: harness check
+        entry: harness check --staged
+        language: system
+        pass_filenames: false
+```
+
+If someone commits without the CLI installed, the hook prints a warning and lets the commit through. Set `HARNESS_HOOK_STRICT=1` to block the commit instead. `harness doctor` tells you whether the hook runs in the current clone.
 
 ## Updating the harness
 
