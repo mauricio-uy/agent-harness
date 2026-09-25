@@ -55,7 +55,7 @@ func (r CheckResult) Report(links LinkReport, out report.Sink) int {
 	r.Skills.Report(out)
 	report.Blank(out)
 	out.Emit(report.Section, "links")
-	status := ReportLinks(r.Links.Scanned, r.Links.Errors, links, out)
+	status := reportLinks(r.Links, links, out)
 	if !r.OK || status != 0 {
 		report.Blank(out)
 		out.Emit(report.Fail, "Documentation checks failed. Fix the reported issues before retrying.")
@@ -93,7 +93,7 @@ func stagedSnapshot(root string) (string, stagedTree, error) {
 	if err != nil {
 		return "", stagedTree{}, err
 	}
-	staged := stagedTree{root: snapshot, files: map[string]bool{}, dirs: map[string]bool{".": true}}
+	staged := stagedTree{repo: root, root: snapshot, files: map[string]bool{}, dirs: map[string]bool{".": true}}
 	var markdown strings.Builder
 	for _, name := range strings.Split(string(listing), "\x00") {
 		if name == "" || staged.files[name] {

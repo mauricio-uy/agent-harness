@@ -115,6 +115,7 @@ What `harness check` looks at:
 - Every index matches the documents, and every document is inside `records/`.
 - The skills follow the Agent Skills specification.
 - Every local link and heading anchor works. If a link points to a document that was moved, it suggests where it went.
+- Code and every other tracked file that isn't Markdown only mention documents that exist. That covers a document ID such as `ADR-000003`, which has to match exactly one document, and a path into `docs/`. Staged checks read what you're about to commit.
 
 ## Git hook
 

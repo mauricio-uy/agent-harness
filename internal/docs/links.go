@@ -316,12 +316,7 @@ func checkLinks(root string, files tree) (int, []LinkError) {
 		}
 		return p, err
 	}
-	documents := map[string][]string{}
-	for _, path := range markdownFiles(filepath.Join(root, "docs")) {
-		if id := documentPrefix.FindString(filepath.Base(path)); id != "" && !startsWithDigit(filepath.Base(path)[len(id):]) && within(root, path) {
-			documents[id] = append(documents[id], path)
-		}
-	}
+	documents := documentPaths(root)
 	sources := linkSources(root)
 	if !files.isDir(filepath.Join(root, "docs")) {
 		errors = append(errors, LinkError{Source: "docs", Line: 1, Reason: "documentation directory is missing"})
@@ -396,7 +391,12 @@ func checkLinks(root string, files tree) (int, []LinkError) {
 			result = append(result, e)
 		}
 	}
-	slices.SortStableFunc(result, func(a, b LinkError) int {
+	sortLinkErrors(result)
+	return len(sources), result
+}
+
+func sortLinkErrors(errors []LinkError) {
+	slices.SortStableFunc(errors, func(a, b LinkError) int {
 		if c := strings.Compare(a.Source, b.Source); c != 0 {
 			return c
 		}
@@ -405,7 +405,6 @@ func checkLinks(root string, files tree) (int, []LinkError) {
 		}
 		return strings.Compare(a.Destination, b.Destination)
 	})
-	return len(sources), result
 }
 
 func startsWithDigit(value string) bool { return value != "" && value[0] >= '0' && value[0] <= '9' }
@@ -432,10 +431,24 @@ type LinkReport struct {
 	ReportDir string
 }
 
-// LinkResult is the outcome of checking local links.
+// documentPaths maps each document ID to the files under docs/ named after it.
+func documentPaths(root string) map[string][]string {
+	documents := map[string][]string{}
+	for _, path := range markdownFiles(filepath.Join(root, "docs")) {
+		if id := documentPrefix.FindString(filepath.Base(path)); id != "" && !startsWithDigit(filepath.Base(path)[len(id):]) && within(root, path) {
+			documents[id] = append(documents[id], path)
+		}
+	}
+	return documents
+}
+
+// LinkResult is the outcome of checking local links and the references
+// that other files make to documents.
 type LinkResult struct {
-	Scanned int         `json:"scanned"`
-	Errors  []LinkError `json:"errors"`
+	Scanned int `json:"scanned"`
+	// References counts the document references found in files other than Markdown.
+	References int         `json:"references"`
+	Errors     []LinkError `json:"errors"`
 }
 
 // InspectLinks checks every local link under root.
@@ -443,15 +456,23 @@ func InspectLinks(root string) LinkResult { return inspectLinks(root, diskTree{}
 
 func inspectLinks(root string, files tree) LinkResult {
 	count, errors := checkLinks(root, files)
+	references, referenceErrors := checkReferences(root, files)
+	errors = append(errors, referenceErrors...)
+	sortLinkErrors(errors)
 	if errors == nil {
 		errors = []LinkError{}
 	}
-	return LinkResult{count, errors}
+	return LinkResult{count, references, errors}
 }
 
 // ReportLinks prints the errors and writes the requested reports; it returns
 // the exit status.
 func ReportLinks(count int, errors []LinkError, options LinkReport, out report.Sink) int {
+	return reportLinks(LinkResult{Scanned: count, Errors: errors}, options, out)
+}
+
+func reportLinks(result LinkResult, options LinkReport, out report.Sink) int {
+	count, errors := result.Scanned, result.Errors
 	previous := ""
 	for _, e := range errors {
 		if e.Source != previous {
@@ -470,7 +491,11 @@ func ReportLinks(count int, errors []LinkError, options LinkReport, out report.S
 	if len(errors) > 0 {
 		outcome = report.Fail
 	}
-	report.Emitf(out, outcome, "Scanned %d Markdown file(s); found %d error(s).", count, len(errors))
+	scanned := fmt.Sprintf("%d Markdown file(s)", count)
+	if result.References > 0 {
+		scanned += fmt.Sprintf(" and %d document reference(s) in other files", result.References)
+	}
+	report.Emitf(out, outcome, "Scanned %s; found %d error(s).", scanned, len(errors))
 	if options.GitHub {
 		// GitHub may cap visible annotations; full reports and logs remain complete.
 		for _, e := range errors[:min(len(errors), 50)] {
