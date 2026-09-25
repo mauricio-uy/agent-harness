@@ -50,7 +50,7 @@ func check(t *testing.T, root string) {
 func TestBaseInstallMatchesTemplateAndPassesChecks(t *testing.T) {
 	root := t.TempDir()
 	install(t, root)
-	for _, rel := range []string{"AGENTS.md", "docs/overview.md", "docs/glossary.md", "docs/plans/draft/README.md",
+	for _, rel := range []string{"AGENTS.md", "docs/overview.md", "docs/glossary.md", "docs/plans/draft.md", "docs/plans/README.md",
 		".agents/shared/README.md", ".githooks/pre-commit", ".agents/harness.json"} {
 		if !present(root, rel) {
 			t.Errorf("missing %s", rel)

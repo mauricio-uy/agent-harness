@@ -18,7 +18,7 @@ func (f *fixture) runbook(n int, overrides ...field) string {
 		{"approval", approval(nil, nil)}, {"related", []string{}},
 		{"validation", validation("not-validated", nil, nil, nil)},
 	}, overrides...)
-	return f.write("docs/runbooks/"+id+"-recover.md", frontmatter(fields))
+	return f.write("docs/runbooks/records/"+id+"-recover.md", frontmatter(fields))
 }
 
 func validation(status, revision, date, environment any) map[string]any {
@@ -45,32 +45,32 @@ func tableRow(t *testing.T, index, identifier string) []string {
 func TestRunbookPreviewApplyCheckAndRetirement(t *testing.T) {
 	f := newFixture(t)
 	path := f.runbook(1)
-	f.write("docs/research/README.md", "Keep this index\n")
+	f.write("docs/research/draft.md", "Keep this index\n")
 	expectStatus(t, f.sync("runbooks", false, false), 0)
-	if f.exists("docs/runbooks/README.md") {
+	if f.exists("docs/runbooks/draft.md") {
 		t.Fatal("preview must not write")
 	}
 	expectStatus(t, f.sync("runbooks", false, true), 1)
 	original, _ := os.ReadFile(path)
 	expectStatus(t, f.sync("runbooks", true, false), 0)
-	index := f.read("docs/runbooks/README.md")
+	index := f.index("runbooks", "draft")
 	if !strings.Contains(index, "| Validation | Validated on |") {
 		t.Fatal("validation columns missing")
 	}
 	if got := tableRow(t, index, "RUN-000001")[3:]; !slices.Equal(got, []string{"not-validated", "—", day}) {
 		t.Fatalf("row %v", got)
 	}
-	if !strings.Contains(section(index, "Draft"), "RUN-000001") {
+	if !strings.Contains(index, "RUN-000001") {
 		t.Fatal("draft row missing")
 	}
 	expectStatus(t, f.sync("runbooks", false, true), 0)
 	f.runbook(1, field{"status", "retired"}, field{"owner", "Operations"})
 	expectStatus(t, f.sync("runbooks", false, true), 1)
 	expectStatus(t, f.sync("runbooks", true, false), 0)
-	if !strings.Contains(section(f.read("docs/runbooks/README.md"), "Retired"), "RUN-000001") {
+	if !strings.Contains(f.index("runbooks", "retired"), "RUN-000001") {
 		t.Fatal("retired row missing")
 	}
-	if f.read("docs/research/README.md") != "Keep this index\n" || f.exists("docs/decisions") {
+	if f.read("docs/research/draft.md") != "Keep this index\n" || f.exists("docs/decisions") {
 		t.Fatal("runbook sync must not touch other indexes")
 	}
 	_ = original
@@ -80,12 +80,12 @@ func TestRunbookApprovalDoesNotRequireOrGrantValidation(t *testing.T) {
 	f := newFixture(t)
 	f.runbook(1, field{"status", "approved"}, field{"owner", "Operations"}, field{"approval", approval(1, day)})
 	expectStatus(t, f.sync("runbooks", true, false), 0)
-	if got := tableRow(t, f.read("docs/runbooks/README.md"), "RUN-000001")[3]; got != "not-validated" {
+	if got := tableRow(t, f.index("runbooks", "approved"), "RUN-000001")[3]; got != "not-validated" {
 		t.Fatalf("validation %q", got)
 	}
 	f.runbook(1, field{"validation", validation("passed", 1, day, "staging")})
 	expectStatus(t, f.sync("runbooks", true, false), 0)
-	if got := tableRow(t, f.read("docs/runbooks/README.md"), "RUN-000001")[3:]; !slices.Equal(got, []string{"passed", day, day}) {
+	if got := tableRow(t, f.index("runbooks", "draft"), "RUN-000001")[3:]; !slices.Equal(got, []string{"passed", day, day}) {
 		t.Fatalf("row %v", got)
 	}
 }
@@ -107,7 +107,7 @@ func TestRunbookInvalidOwnerOrApprovalPreventsWrites(t *testing.T) {
 		r := f.sync("runbooks", true, false)
 		expectStatus(t, r, 1)
 		r.contains(t, c.expected)
-		if f.exists("docs/runbooks/README.md") {
+		if f.exists("docs/runbooks/draft.md") {
 			t.Fatal("validation errors must prevent writes")
 		}
 	}
@@ -135,7 +135,7 @@ func TestRunbookInvalidValidationMetadataPreventsWrites(t *testing.T) {
 		if r.status != 1 || !strings.Contains(r.out, "validation") {
 			t.Errorf("validation %v: status %d\n%s", v, r.status, r.out)
 		}
-		if f.exists("docs/runbooks/README.md") {
+		if f.exists("docs/runbooks/draft.md") {
 			t.Fatal("validation errors must prevent writes")
 		}
 	}
@@ -153,7 +153,7 @@ func TestRunbookValidOperationalStatesAndStaleHistory(t *testing.T) {
 		if after, _ := os.ReadFile(path); string(after) != string(original) {
 			t.Fatal("record must not change")
 		}
-		if got := tableRow(t, f.read("docs/runbooks/README.md"), "RUN-000001")[3:]; !slices.Equal(got, []string{c.state, day, day}) {
+		if got := tableRow(t, f.index("runbooks", "draft"), "RUN-000001")[3:]; !slices.Equal(got, []string{c.state, day, day}) {
 			t.Fatalf("%s: row %v", c.state, got)
 		}
 	}
@@ -163,14 +163,14 @@ func TestRunbookInvalidIdentityAndDuplicateIDsLeaveIndexUnchanged(t *testing.T) 
 	f := newFixture(t)
 	path := f.runbook(1)
 	expectStatus(t, f.sync("runbooks", true, false), 0)
-	original := f.read("docs/runbooks/README.md")
+	original := f.index("runbooks", "draft")
 	raw, _ := os.ReadFile(path)
-	f.write("docs/runbooks/RUN-000001-copy.md", string(raw))
+	f.write("docs/runbooks/records/RUN-000001-copy.md", string(raw))
 	f.runbook(2, field{"type", "research"}, field{"related", []string{"RES-999999"}})
 	r := f.sync("runbooks", true, false)
 	expectStatus(t, r, 1)
 	r.contains(t, "duplicate ID", "type must", "RES-999999")
-	if f.read("docs/runbooks/README.md") != original {
+	if f.index("runbooks", "draft") != original {
 		t.Fatal("index must not change")
 	}
 }
@@ -186,7 +186,7 @@ func TestRunbookReplacementRequiresApprovedSuccessorAndPreservesRetiredHistory(t
 	expectStatus(t, f.sync("runbooks", true, false), 0)
 	f.runbook(2, field{"status", "retired"}, field{"owner", "Ops"}, field{"approval", approval(1, day)}, field{"supersedes", []string{"RUN-000001"}})
 	expectStatus(t, f.sync("runbooks", true, false), 0)
-	if !strings.Contains(section(f.read("docs/runbooks/README.md"), "Superseded"), "RUN-000001") {
+	if !strings.Contains(f.index("runbooks", "superseded"), "RUN-000001") {
 		t.Fatal("superseded row missing")
 	}
 	f.runbook(1, field{"supersedes", []string{"RUN-000002"}})
@@ -199,17 +199,17 @@ func TestRunbookCrossDocumentRelationsDoNotExpandOwnership(t *testing.T) {
 	f := newFixture(t)
 	f.runbook(1, field{"related", []string{"RES-000001", "ADR-000001", "PLAN-000001"}})
 	for rel, id := range map[string]string{
-		"research/RES-000001-example.md": "RES-000001", "decisions/ADR-000001-example.md": "ADR-000001",
-		"plans/draft/PLAN-000001-example.md": "PLAN-000001"} {
+		"research/records/RES-000001-example.md": "RES-000001", "decisions/records/ADR-000001-example.md": "ADR-000001",
+		"plans/records/PLAN-000001-example.md": "PLAN-000001"} {
 		f.write("docs/"+rel, "---\nid: "+id+"\nstatus: invalid\n---\n")
 	}
 	expectStatus(t, f.sync("runbooks", true, false), 0)
 	for _, c := range []struct{ suite, kind string }{{"research", "research"}, {"specifications", "adr"}} {
 		f.document(c.kind, 1, field{"related", []string{"RUN-000001"}})
 		f.runbook(1, field{"status", "invalid"})
-		before := f.read("docs/runbooks/README.md")
+		before := f.index("runbooks", "draft")
 		expectStatus(t, f.sync(c.suite, true, false), 0)
-		if f.read("docs/runbooks/README.md") != before {
+		if f.index("runbooks", "draft") != before {
 			t.Fatalf("%s sync must not touch the runbook index", c.suite)
 		}
 	}
@@ -220,7 +220,7 @@ func TestLinkCheckerSuggestsRunbookPath(t *testing.T) {
 	f.runbook(1)
 	f.write("docs/guide.md", "[Runbook](old/RUN-000001-recover.md#recovery)\n")
 	_, errors := f.links(LinkReport{})
-	if len(errors) != 1 || errors[0].Suggestion != "runbooks/RUN-000001-recover.md#recovery" {
+	if len(errors) != 1 || errors[0].Suggestion != "runbooks/records/RUN-000001-recover.md#recovery" {
 		t.Fatalf("errors %+v", errors)
 	}
 }

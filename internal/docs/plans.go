@@ -2,7 +2,6 @@ package docs
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,15 +10,31 @@ import (
 )
 
 var (
-	activePlanStates = []string{"draft", "awaiting-approval", "approved", "in-progress"}
-	activePlanTitles = map[string]string{
-		"draft": "Draft", "awaiting-approval": "Awaiting Approval", "approved": "Approved", "in-progress": "In Progress",
-	}
-	planStates         = append(slices.Clone(activePlanStates), "completed", "cancelled", "superseded")
+	planStates         = []string{"draft", "awaiting-approval", "approved", "in-progress", "completed", "cancelled", "superseded"}
 	approvedPlanStates = []string{"approved", "in-progress", "completed"}
 	planID             = regexp.MustCompile(`^PLAN-[0-9]{6}$`)
 	planFile           = regexp.MustCompile(`^(PLAN-[0-9]{6})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$`)
 )
+
+// Plans covers implementation plans. Unlike specifications, a plan records its
+// replacement with superseded_by and several states require current approval.
+var Plans = &Suite{
+	Name:      "plans",
+	Types:     []DocType{{"plan", "PLAN", "plans", "Plans", planStates, ""}},
+	validate:  func(r record, _ DocType, _ *Suite) []string { return validatePlan(r.path, r.data) },
+	relations: planRelations,
+}
+
+// planRelations requires every superseded_by to name an existing plan.
+func planRelations(records []record, catalog map[string][]record) []string {
+	var errors []string
+	for _, r := range records {
+		if target, ok := r.data["superseded_by"].(string); ok && len(catalog[target]) == 0 {
+			errors = append(errors, fmt.Sprintf("%s: superseded_by references missing ID %s", r.rel, target))
+		}
+	}
+	return errors
+}
 
 func validatePlan(path string, data map[string]any) []string {
 	var errors []string
@@ -99,150 +114,6 @@ func validatePlan(path string, data map[string]any) []string {
 		}
 	}
 	return errors
-}
-
-type plan struct {
-	path, rel string
-	data      map[string]any
-}
-
-func planIndexContent(state string, plans []plan) string {
-	lines := []string{"# " + activePlanTitles[state] + " Plans", "", "| ID | Plan | Status | Updated |", "| --- | --- | --- | --- |"}
-	var matching []plan
-	for _, p := range plans {
-		if p.data["status"] == state {
-			matching = append(matching, p)
-		}
-	}
-	slices.SortStableFunc(matching, func(a, b plan) int { return strings.Compare(fmt.Sprint(a.data["id"]), fmt.Sprint(b.data["id"])) })
-	for _, p := range matching {
-		updated, _ := ISODate(p.data["updated"])
-		lines = append(lines, fmt.Sprintf("| %v | [%s](%s) | %s | %s |",
-			p.data["id"], TableText(fmt.Sprint(p.data["title"])), QuotePath(filepath.Base(p.path)), state, formatDate(updated)))
-	}
-	if len(matching) == 0 {
-		lines = append(lines, "", "No plans in this state.")
-	}
-	return strings.Join(lines, "\n") + "\n"
-}
-
-// SyncPlans validates plans, moves each into the directory for its status, and
-// regenerates the active-state indexes. Any validation error aborts before the first write.
-func SyncPlans(root string, apply, check bool, out io.Writer) int {
-	base := filepath.Join(root, "docs", "plans")
-	if !isDir(base) || !within(root, base) {
-		fmt.Fprintln(out, "ERROR: docs/plans must be a directory inside the repository")
-		return 1
-	}
-	var errors []string
-	var plans []plan
-	identifiers := map[string][]string{}
-	var order []string
-	for _, path := range markdownFiles(base) {
-		if filepath.Base(path) == "README.md" {
-			continue
-		}
-		rel := relSlash(root, path)
-		if !within(base, path) || isSymlink(path) {
-			errors = append(errors, rel+": plan must be a regular file inside docs/plans")
-			continue
-		}
-		data, err := ReadMetadata(path)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", rel, err))
-			continue
-		}
-		plans = append(plans, plan{path, rel, data})
-		for _, e := range validatePlan(path, data) {
-			errors = append(errors, rel+": "+e)
-		}
-		if identifier, ok := data["id"].(string); ok {
-			if identifiers[identifier] == nil {
-				order = append(order, identifier)
-			}
-			identifiers[identifier] = append(identifiers[identifier], rel)
-		}
-	}
-	for _, identifier := range order {
-		if paths := identifiers[identifier]; len(paths) > 1 {
-			errors = append(errors, fmt.Sprintf("duplicate ID %s: %s", identifier, strings.Join(paths, ", ")))
-		}
-	}
-
-	type move struct{ source, target string }
-	var moves []move
-	for _, p := range plans {
-		if target, ok := p.data["superseded_by"].(string); ok && identifiers[target] == nil {
-			errors = append(errors, fmt.Sprintf("%s: superseded_by references missing ID %s", p.rel, target))
-		}
-		status, _ := p.data["status"].(string)
-		if !slices.Contains(planStates, status) {
-			continue
-		}
-		target := filepath.Join(base, status, filepath.Base(p.path))
-		switch {
-		case !within(base, target):
-			errors = append(errors, relSlash(root, target)+": destination resolves outside docs/plans")
-		case filepath.Clean(p.path) != target:
-			if exists(target) {
-				errors = append(errors, relSlash(root, target)+": destination collision")
-			}
-			moves = append(moves, move{p.path, target})
-		}
-	}
-	for _, state := range planStates {
-		directory := filepath.Join(base, state)
-		index := filepath.Join(directory, "README.md")
-		if isFile(directory) || !within(base, directory) {
-			errors = append(errors, relSlash(root, directory)+": invalid state directory")
-		}
-		if isSymlink(index) || notRegular(index) {
-			errors = append(errors, relSlash(root, index)+": index must be a regular file")
-		}
-	}
-	if len(errors) > 0 {
-		return reportErrors(out, errors)
-	}
-
-	type update struct{ path, content string }
-	var updates []update
-	for _, state := range activePlanStates {
-		path := filepath.Join(base, state, "README.md")
-		content := planIndexContent(state, plans)
-		if current, ok := readText(path); !ok || current != content {
-			updates = append(updates, update{path, content})
-		}
-	}
-	for _, m := range moves {
-		fmt.Fprintf(out, "MOVE %s -> %s\n", relSlash(root, m.source), relSlash(root, m.target))
-	}
-	for _, u := range updates {
-		fmt.Fprintln(out, "INDEX "+relSlash(root, u.path))
-	}
-	if apply {
-		// Metadata and destinations have all been checked before the first write.
-		for _, m := range moves {
-			if err := os.MkdirAll(filepath.Dir(m.target), 0o755); err != nil {
-				fmt.Fprintf(out, "ERROR: %v\n", err)
-				return 1
-			}
-			if err := os.Rename(m.source, m.target); err != nil {
-				fmt.Fprintf(out, "ERROR: %v\n", err)
-				return 1
-			}
-		}
-		for _, u := range updates {
-			if err := writeText(u.path, u.content); err != nil {
-				fmt.Fprintf(out, "ERROR: %v\n", err)
-				return 1
-			}
-		}
-	}
-	fmt.Fprintf(out, "%d plan(s); %d move(s); %d index update(s). %s\n", len(plans), len(moves), len(updates), modeLabel(apply))
-	if check && len(moves)+len(updates) > 0 {
-		return 1
-	}
-	return 0
 }
 
 func exists(path string) bool {

@@ -28,14 +28,15 @@ func (f *fixture) document(kind string, n int, overrides ...field) string {
 		{"created", "2026-09-20"}, {"updated", "2026-09-20"}, {"revision", 1},
 		{"approval", approval(nil, nil)}, {"related", []string{}},
 	}, overrides...)
-	return f.write("docs/"+spec.folder+"/"+id+"-example.md", frontmatter(fields))
+	return f.write("docs/"+spec.folder+"/records/"+id+"-example.md", frontmatter(fields))
 }
 
-func readmes(t *testing.T, root string) []string {
+// indexes lists generated index files: Markdown outside records/ other than README.md.
+func indexes(t *testing.T, root string) []string {
 	t.Helper()
 	var found []string
 	filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err == nil && entry.Name() == "README.md" {
+		if err == nil && !entry.IsDir() && entry.Name() != "README.md" && filepath.Base(filepath.Dir(path)) != RecordsDir {
 			found = append(found, path)
 		}
 		return nil
@@ -50,13 +51,13 @@ func TestSpecificationPreviewCheckAndStatusChangeMoveRowsOnly(t *testing.T) {
 		paths = append(paths, f.document(kind, 1))
 	}
 	expectStatus(t, f.sync("specifications", false, false), 0)
-	if len(readmes(t, f.root)) != 0 {
+	if len(indexes(t, f.root)) != 0 {
 		t.Fatal("preview must not write indexes")
 	}
 	expectStatus(t, f.sync("specifications", false, true), 1)
 	expectStatus(t, f.sync("specifications", true, false), 0)
 	for _, path := range paths {
-		index, _ := os.ReadFile(filepath.Join(filepath.Dir(path), "README.md"))
+		index, _ := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(path)), "draft.md"))
 		if !strings.Contains(string(index), filepath.Base(path)) {
 			t.Fatalf("index lacks %s", path)
 		}
@@ -64,9 +65,8 @@ func TestSpecificationPreviewCheckAndStatusChangeMoveRowsOnly(t *testing.T) {
 	f.document("adr", 1, field{"status", "accepted"}, field{"approval", approval(1, "2026-09-20")})
 	expectStatus(t, f.sync("specifications", false, true), 1)
 	expectStatus(t, f.sync("specifications", true, false), 0)
-	index := f.read("docs/decisions/README.md")
-	if strings.Contains(section(index, "Draft"), "ADR-000001") || !strings.Contains(section(index, "Accepted"), "ADR-000001") {
-		t.Fatalf("row must move to Accepted:\n%s", index)
+	if strings.Contains(f.index("decisions", "draft"), "ADR-000001") || !strings.Contains(f.index("decisions", "accepted"), "ADR-000001") {
+		t.Fatal("row must move to the accepted index")
 	}
 	expectStatus(t, f.sync("specifications", false, true), 0)
 }
@@ -77,9 +77,8 @@ func TestSpecificationHistoricalDocumentsAreInSeparateTables(t *testing.T) {
 	f.document("adr", 2, field{"status", "accepted"}, field{"approval", approval(1, "2026-09-20")}, field{"supersedes", []string{"ADR-000001"}})
 	f.document("adr", 3, field{"status", "rejected"})
 	expectStatus(t, f.sync("specifications", true, false), 0)
-	index := f.read("docs/decisions/README.md")
-	if !strings.Contains(section(index, "Superseded"), "ADR-000001") || !strings.Contains(section(index, "Rejected"), "ADR-000003") {
-		t.Fatalf("historical rows misplaced:\n%s", index)
+	if !strings.Contains(f.index("decisions", "superseded"), "ADR-000001") || !strings.Contains(f.index("decisions", "rejected"), "ADR-000003") {
+		t.Fatal("historical rows misplaced")
 	}
 }
 
@@ -87,12 +86,12 @@ func TestSpecificationInvalidMetadataAndDuplicateIDsAbortAllWrites(t *testing.T)
 	f := newFixture(t)
 	path := f.document("adr", 1, field{"status", "approved"}, field{"approval", approval(true, "2026-09-20")})
 	raw, _ := os.ReadFile(path)
-	f.write("docs/decisions/ADR-000001-copy.md", string(raw))
+	f.write("docs/decisions/records/ADR-000001-copy.md", string(raw))
 	f.document("use-case", 1, field{"related", []string{"FR-999999"}})
 	r := f.sync("specifications", true, false)
 	expectStatus(t, r, 1)
 	r.contains(t, "status", "approval", "duplicate", "FR-999999")
-	if len(readmes(t, f.root)) != 0 {
+	if len(indexes(t, f.root)) != 0 {
 		t.Fatal("validation errors must prevent writes")
 	}
 }
@@ -111,7 +110,7 @@ func TestSpecificationRelatedCanReferenceAPlanAndOtherTypes(t *testing.T) {
 	f := newFixture(t)
 	f.document("functional-requirement", 1)
 	f.document("adr", 1, field{"related", []string{"FR-000001", "PLAN-000001"}})
-	f.write("docs/plans/draft/PLAN-000001-example.md", "---\nid: PLAN-000001\n---\n")
+	f.write("docs/plans/records/PLAN-000001-example.md", "---\nid: PLAN-000001\n---\n")
 	expectStatus(t, f.sync("specifications", true, false), 0)
 }
 
@@ -149,9 +148,9 @@ func TestSpecificationSyncDoesNotManageUnrelatedResearch(t *testing.T) {
 	f := newFixture(t)
 	f.document("adr", 1)
 	f.document("research", 1, field{"status", "invalid"})
-	f.write("docs/research/README.md", "Keep research index unchanged")
+	f.write("docs/research/draft.md", "Keep research index unchanged")
 	expectStatus(t, f.sync("specifications", true, false), 0)
-	if f.read("docs/research/README.md") != "Keep research index unchanged" {
+	if f.read("docs/research/draft.md") != "Keep research index unchanged" {
 		t.Fatal("research index must be untouched")
 	}
 	expectStatus(t, f.sync("specifications", false, true), 0)
@@ -161,13 +160,13 @@ func TestResearchSyncOnlyWritesItsIndexAndIgnoresUnrelatedMetadata(t *testing.T)
 	f := newFixture(t)
 	f.document("research", 1)
 	f.document("adr", 1, field{"status", "invalid"})
-	f.write("docs/decisions/README.md", "Keep specification index unchanged")
+	f.write("docs/decisions/draft.md", "Keep specification index unchanged")
 	expectStatus(t, f.sync("research", false, false), 0)
-	if f.exists("docs/research/README.md") {
+	if f.exists("docs/research/draft.md") {
 		t.Fatal("preview must not write")
 	}
 	expectStatus(t, f.sync("research", true, false), 0)
-	if f.read("docs/decisions/README.md") != "Keep specification index unchanged" || f.exists("docs/use-cases") {
+	if f.read("docs/decisions/draft.md") != "Keep specification index unchanged" || f.exists("docs/use-cases") {
 		t.Fatal("research sync must not touch specifications")
 	}
 	expectStatus(t, f.sync("research", false, true), 0)
@@ -188,16 +187,15 @@ func TestResearchApprovalMovesOnlyTheIndexRow(t *testing.T) {
 	path := f.document("research", 1, field{"related", []string{"ADR-000001"}})
 	f.document("adr", 1, field{"related", []string{"RES-000001"}})
 	expectStatus(t, f.sync("research", true, false), 0)
-	if !strings.Contains(section(f.read("docs/research/README.md"), "Draft"), "RES-000001") {
+	if !strings.Contains(f.index("research", "draft"), "RES-000001") {
 		t.Fatal("draft row missing")
 	}
 	f.document("research", 1, field{"related", []string{"ADR-000001"}}, field{"status", "approved"}, field{"approval", approval(1, "2026-09-20")})
 	original, _ := os.ReadFile(path)
 	expectStatus(t, f.sync("research", false, true), 1)
 	expectStatus(t, f.sync("research", true, false), 0)
-	index := f.read("docs/research/README.md")
-	if strings.Contains(section(index, "Draft"), "RES-000001") || !strings.Contains(section(index, "Approved"), "RES-000001") {
-		t.Fatalf("row must move to Approved:\n%s", index)
+	if strings.Contains(f.index("research", "draft"), "RES-000001") || !strings.Contains(f.index("research", "approved"), "RES-000001") {
+		t.Fatal("row must move to the approved index")
 	}
 	if after, _ := os.ReadFile(path); string(after) != string(original) {
 		t.Fatal("record must not change")
@@ -212,7 +210,7 @@ func TestResearchRequiresCurrentApprovalAndExistingRelations(t *testing.T) {
 	r := f.sync("research", true, false)
 	expectStatus(t, r, 1)
 	r.contains(t, "current revision", "FR-999999")
-	if len(readmes(t, f.root)) != 0 {
+	if len(indexes(t, f.root)) != 0 {
 		t.Fatal("validation errors must prevent writes")
 	}
 }
@@ -226,7 +224,7 @@ func TestSupersededResearchRequiresAnApprovedResearchSuccessor(t *testing.T) {
 	r.contains(t, "approved replacement")
 	f.document("research", 2, field{"supersedes", []string{"RES-000001"}}, field{"status", "approved"}, field{"approval", approval(1, "2026-09-20")})
 	expectStatus(t, f.sync("research", true, false), 0)
-	if !strings.Contains(section(f.read("docs/research/README.md"), "Superseded"), "RES-000001") {
+	if !strings.Contains(f.index("research", "superseded"), "RES-000001") {
 		t.Fatal("superseded row missing")
 	}
 	f.document("adr", 1)

@@ -15,7 +15,7 @@ var Suites = []string{"plans", "specifications", "research", "runbooks"}
 func SyncSuite(name, root string, apply, check bool, out io.Writer) (int, error) {
 	switch name {
 	case "plans":
-		return SyncPlans(root, apply, check, out), nil
+		return Plans.Sync(root, apply, check, out), nil
 	case "specifications":
 		return Specifications.Sync(root, apply, check, out), nil
 	case "research":

@@ -143,13 +143,10 @@ func readLinkReport(t *testing.T, dir string) []LinkError {
 	return report.Errors
 }
 
-func section(index, heading string) string {
-	_, after, found := strings.Cut(index, "## "+heading)
-	if !found {
-		return ""
-	}
-	body, _, _ := strings.Cut(after, "## ")
-	return body
+// index reads the generated index of one state of a document type.
+func (f *fixture) index(folder, state string) string {
+	f.t.Helper()
+	return f.read("docs/" + folder + "/" + state + ".md")
 }
 
 func number(n int) string { return fmt.Sprintf("%06d", n) }

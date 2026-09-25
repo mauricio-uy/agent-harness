@@ -10,8 +10,8 @@ import (
 
 func TestLinksReportAllErrorsAndSuggestMovedPlan(t *testing.T) {
 	f := newFixture(t)
-	f.plan(1, "completed", "completed", "1", 1)
-	f.write("docs/guide.md", "# Guide\n\n[Plan](plans/draft/PLAN-000001-example.md)\n\n![Image](missing.png)\n")
+	f.plan(1, "completed", "1", 1)
+	f.write("docs/guide.md", "# Guide\n\n[Plan](plans/PLAN-000001-example.md)\n\n![Image](missing.png)\n")
 	report := filepath.Join(f.root, "report")
 	r, _ := f.links(LinkReport{ReportDir: report})
 	expectStatus(t, r, 1)
@@ -21,7 +21,7 @@ func TestLinksReportAllErrorsAndSuggestMovedPlan(t *testing.T) {
 	}
 	for _, e := range errors {
 		if strings.Contains(e.Destination, "PLAN-") {
-			if e.Line != 3 || e.Suggestion != "plans/completed/PLAN-000001-example.md" {
+			if e.Line != 3 || e.Suggestion != "plans/records/PLAN-000001-example.md" {
 				t.Fatalf("unexpected plan error %+v", e)
 			}
 		}

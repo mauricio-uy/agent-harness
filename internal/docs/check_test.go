@@ -67,12 +67,12 @@ func TestStagedUnstagedErrorDoesNotBlockValidIndex(t *testing.T) {
 
 func TestStagedStaleIndexAndLinksAreBothReported(t *testing.T) {
 	f := stagedFixture(t)
-	f.write("docs/research/README.md", "stale\n")
+	f.write("docs/research/draft.md", "stale\n")
 	f.write("README.md", "[Missing](missing.md)\n")
 	f.git("add", ".")
 	r := f.checkStaged()
 	expectStatus(t, r, 1)
-	r.contains(t, "== research ==", "INDEX docs/research/README.md", "missing.md")
+	r.contains(t, "== research ==", "INDEX docs/research/draft.md", "missing.md")
 }
 
 func TestCheckRejectsNonStandardSkillFrontmatter(t *testing.T) {
