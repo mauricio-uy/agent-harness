@@ -4,10 +4,10 @@
 
 | Type | Question answered | ID prefix | Destination | Template |
 | --- | --- | --- | --- | --- |
-| `adr` | Which architectural option do we choose, and why? | `ADR` | `docs/decisions/` | [ADR](../assets/adr-template.md) |
-| `use-case` | How does an actor achieve a goal through the system? | `UC` | `docs/use-cases/` | [Use case](../assets/use-case-template.md) |
-| `functional-requirement` | What observable behavior must the system provide? | `FR` | `docs/requirements/functional/` | [Functional requirement](../assets/functional-requirement-template.md) |
-| `non-functional-requirement` | What measurable quality or constraint must the system satisfy? | `NFR` | `docs/requirements/non-functional/` | [Non-functional requirement](../assets/non-functional-requirement-template.md) |
+| `adr` | Which architectural option do we choose, and why? | `ADR` | `docs/decisions/records/` | [ADR](../assets/adr-template.md) |
+| `use-case` | How does an actor achieve a goal through the system? | `UC` | `docs/use-cases/records/` | [Use case](../assets/use-case-template.md) |
+| `functional-requirement` | What observable behavior must the system provide? | `FR` | `docs/requirements/functional/records/` | [Functional requirement](../assets/functional-requirement-template.md) |
+| `non-functional-requirement` | What measurable quality or constraint must the system satisfy? | `NFR` | `docs/requirements/non-functional/records/` | [Non-functional requirement](../assets/non-functional-requirement-template.md) |
 
 Use one document per decision, actor goal, or independently verifiable requirement. A use case may reference several requirements; an ADR may explain an implementation choice that satisfies them. Do not create all four types by default. Ask before resolving a genuine classification ambiguity.
 
@@ -15,13 +15,13 @@ Create destination directories when the first document is needed. Name files `<I
 
 ## Directories and indexes
 
-Maintain one `README.md` index in each type's destination directory. Keep `docs/README.md` as a navigation entry point linking to these indexes and the plan index; do not list individual documents there or add skill instructions to indexes.
+Each type directory holds a hand-written `README.md` that explains its states and links their indexes, one generated index per state named `<state>.md`, and the documents in `records/`. Keep `docs/README.md` as a navigation entry point linking to each type's `README.md`; do not list individual documents there or add skill instructions to indexes.
 
-Each type index has separate tables for `awaiting-approval`, `draft`, the type's approval state, `rejected`, and `superseded`, in that order. Each table contains `ID`, `Document`, `Revision`, and `Updated`, sorted by ID. The section heading supplies the status; document titles link to their files using relative paths. Empty sections retain their headers and a short empty-state message, without placeholder records.
+Each type has an index for `awaiting-approval`, `draft`, the type's approval state, `rejected`, and `superseded`. Each index is a table with `ID`, `Document`, `Revision`, and `Updated`, sorted by ID; document titles link to their records using relative paths. An empty index keeps its header and a short empty-state message, without placeholder records.
 
-`harness sync specifications` generates these indexes from frontmatter. Every document appears exactly once, in its status table, including historical records. Change document metadata and regenerate; do not edit generated rows. Status changes move rows between tables, never document files. When accepting a replacement, update both records before regenerating. Keep navigation outside generated indexes in `docs/README.md`.
+`harness sync specifications` generates these indexes from frontmatter. Every document appears exactly once, in the index of its status, including historical records. Change document metadata and regenerate; do not edit generated rows. Status changes move rows between indexes, never document files. When accepting a replacement, update both records before regenerating. Keep navigation outside generated indexes in `docs/README.md`.
 
-Read only the relevant type and status section, or search by ID; do not load every index or document. Include historical files when allocating IDs or tracing decisions. Do not run `harness sync plans` on specification directories.
+Read only the index of the relevant type and status, or search `records/` by ID; do not load every index or document. Include historical files when allocating IDs or tracing decisions. Do not run `harness sync plans` on specification directories.
 
 ## Shared frontmatter
 

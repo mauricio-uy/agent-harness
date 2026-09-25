@@ -4,7 +4,7 @@ Use [the runbook template](../assets/runbook-template.md). This reference define
 
 ## Identity and frontmatter
 
-Store records in `docs/runbooks/<ID>-<short-slug>.md`, using IDs such as `RUN-000001`. Allocate the next unused six-digit number across current and historical records; recheck before saving concurrent work. Keep IDs and paths stable when status changes.
+Store records in `docs/runbooks/records/<ID>-<short-slug>.md`, using IDs such as `RUN-000001`. Allocate the next unused six-digit number across current and historical records; recheck before saving concurrent work. Keep IDs and paths stable when status changes.
 
 | Field | Required value or meaning |
 | --- | --- |
@@ -58,6 +58,6 @@ Keep history when a new attempt updates the latest validation metadata. Inspecti
 
 ## Index
 
-Maintain `docs/runbooks/README.md` with separate tables for `awaiting-approval`, `draft`, `approved`, `rejected`, `retired`, and `superseded`, in that order. Columns are `ID`, linked `Document` title, `Revision`, `Validation`, `Validated on`, and `Updated`, sorted by ID. Derive rows from frontmatter; use an em dash for a null validation date. Each record appears exactly once in its status section. Empty sections retain headers and an empty-state message.
+Keep one generated index per state in `docs/runbooks/`: `awaiting-approval.md`, `draft.md`, `approved.md`, `rejected.md`, `retired.md`, and `superseded.md`, linked from the hand-written `docs/runbooks/README.md`. Columns are `ID`, linked `Document` title, `Revision`, `Validation`, `Validated on`, and `Updated`, sorted by ID. Derive rows from frontmatter; use an em dash for a null validation date. Each record appears exactly once, in the index of its status. An empty index keeps its header and an empty-state message.
 
-Regenerate the index from frontmatter with `harness sync runbooks --apply` after creating or revising runbooks; do not edit generated rows. Keep custom navigation in `docs/README.md`. Do not use specification or research synchronization to manage this index. Read only relevant sections or search by ID. The index lists documents within its own directory and contains no skill instructions.
+Regenerate the indexes from frontmatter with `harness sync runbooks --apply` after creating or revising runbooks; do not edit generated rows. Keep custom navigation in `docs/README.md`. Do not use specification or research synchronization to manage these indexes. Read only the relevant index or search `records/` by ID. Indexes list only runbooks and contain no skill instructions.

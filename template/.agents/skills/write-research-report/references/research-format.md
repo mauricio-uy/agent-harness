@@ -4,7 +4,7 @@ Use [the research template](../assets/research-template.md). This reference defi
 
 ## Identity and frontmatter
 
-Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/research/`. Allocate the next unused six-digit number, including historical records; recheck before saving concurrent work. Status changes never move files.
+Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/research/records/`. Allocate the next unused six-digit number, including historical records; recheck before saving concurrent work. Status changes never move files.
 
 | Field | Required value or meaning |
 | --- | --- |
@@ -22,9 +22,9 @@ An approval revision is positive and cannot exceed the current revision; its dat
 
 ## Index
 
-Maintain `docs/research/README.md` with separate tables for `awaiting-approval`, `draft`, `approved`, `rejected`, and `superseded`, in that order. Each table contains `ID`, linked `Document` title, `Revision`, and `Updated`, sorted by ID. Each record appears once, according to its frontmatter. Empty sections retain table headers and an empty-state message.
+Keep one generated index per state in `docs/research/`: `awaiting-approval.md`, `draft.md`, `approved.md`, `rejected.md`, and `superseded.md`, linked from the hand-written `docs/research/README.md`. Each index contains `ID`, linked `Document` title, `Revision`, and `Updated`, sorted by ID. Each record appears once, in the index of its status. An empty index keeps its header and an empty-state message.
 
-Regenerate the research index after metadata changes; do not edit generated rows. Read only relevant sections or search by ID. The index lists documents within its own directory and contains no skill instructions.
+Regenerate the research indexes after metadata changes; do not edit generated rows. Read only the relevant index or search `records/` by ID. Indexes list only research records and contain no skill instructions.
 
 ## Evidence and conclusions
 

@@ -2,7 +2,7 @@
 
 ## Identity and metadata
 
-Store plans at `docs/plans/<status>/PLAN-<six-digit-number>-<slug>.md`.
+Store plans at `docs/plans/records/PLAN-<six-digit-number>-<slug>.md`. A plan never moves: its status decides which generated index in `docs/plans/` lists it, and `docs/plans/README.md` links every index.
 Choose the next unused number by searching all states; recheck uniqueness before saving when work is concurrent. Never reuse an ID or rename an existing plan merely because its title changes.
 
 The YAML frontmatter is the source of truth. Each plan has:
@@ -11,7 +11,7 @@ The YAML frontmatter is the source of truth. Each plan has:
 | --- | --- |
 | `id` | Unique, permanent `PLAN-000001` style identifier matching the filename. |
 | `title` | Short, single-line description. |
-| `status` | One of the states below; the containing directory must match. |
+| `status` | One of the states below; it decides which index lists the plan. |
 | `created` | Creation date, `YYYY-MM-DD`; never reset. |
 | `updated` | Last substantive content, metadata, or progress update, `YYYY-MM-DD`. |
 | `revision` | Positive integer identifying the content submitted for approval. |
@@ -57,4 +57,4 @@ A routine pause or blocker leaves the plan `in-progress`; explain it in the chec
 
 Use the template's objective, scope, decisions, increments, acceptance criteria, and validation sections. Record TDD exceptions before approval. Add risks and dependencies when relevant. Remove instructional placeholders before requesting approval.
 
-Use relative Markdown links, resolved from the document containing them. Include the plan ID in cross-document link labels so moved destinations are easy to identify. Prefer links to whole plans over volatile section headings.
+Use relative Markdown links, resolved from the document containing them. Include the plan ID in cross-document link labels. Prefer links to whole plans over volatile section headings.
