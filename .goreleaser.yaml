@@ -1,0 +1,26 @@
+# Builds the release binaries when a v* tag is pushed; see .github/workflows/release.yml.
+version: 2
+
+builds:
+  - main: ./cmd/harness
+    binary: harness
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/mauricio-uy/agent-harness/internal/cli.Version={{ .Tag }}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [README.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github

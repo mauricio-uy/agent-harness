@@ -1,0 +1,8 @@
+# Keeps the pinned action SHAs current. Go modules are left out: newer
+# golang.org/x releases raise the minimum Go version declared in go.mod.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

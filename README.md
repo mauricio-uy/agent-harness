@@ -76,11 +76,15 @@ In Codex, Claude Code and OpenCode, `write-plan` only runs when you call it. Pi 
 
 ## Trying it out
 
-There are no prebuilt binaries yet. If you have Go 1.26 or newer, install the CLI with:
+Download the archive for your system from the [releases page](https://github.com/mauricio-uy/agent-harness/releases), extract it and put `harness` somewhere on your `PATH`. `checksums.txt` on the same page lets you verify the download.
+
+If you have Go 1.25.8 or newer, you can build it instead:
 
 ```sh
 go install github.com/mauricio-uy/agent-harness/cmd/harness@latest
 ```
+
+`harness version` tells you which version you have.
 
 Then, inside your project:
 
