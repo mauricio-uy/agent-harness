@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -22,8 +23,25 @@ import (
 	"github.com/mauricio-uy/agent-harness/internal/ui"
 )
 
-// Version is set at build time.
-var Version = "dev"
+// Version is set at build time with -ldflags "-X <module>/internal/cli.Version=v1.2.3".
+// Without it, the module version of `go install ...@v1.2.3` is used.
+var Version = ""
+
+// version names this build of the CLI.
+func version() string {
+	info, _ := debug.ReadBuildInfo()
+	return resolveVersion(Version, info)
+}
+
+func resolveVersion(linked string, info *debug.BuildInfo) string {
+	if linked != "" {
+		return linked
+	}
+	if info != nil && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 // now is replaceable so tests can fix the date.
 var now = time.Now
@@ -33,6 +51,7 @@ const usage = `harness installs and maintains a documentation-first agent harnes
 Usage:
   harness init   [--root DIR] [--clients LIST]   install the harness and client files
   harness link   [--root DIR]                    recreate client skill links in this clone
+  harness upgrade [--root DIR] [--apply]         update installed files the project has not changed
   harness sync   [--root DIR] [--apply|--check] [SUITE...]
                                                  validate documents and regenerate indexes
   harness check  [--root DIR] [--staged] [--format text|github|json] [--report-dir DIR]
@@ -72,6 +91,15 @@ func Run(args []string, streams IO) int {
 	case "link":
 		err = runLink(rest, streams, printer)
 		summarize(printer, err)
+	case "upgrade":
+		var applied bool
+		applied, err = runUpgrade(rest, streams, printer)
+		if applied {
+			summarize(printer, err)
+		} else if err == nil && printer.Count("created")+printer.Count("updated") > 0 {
+			report.Blank(printer)
+			printer.Emit(report.Plain, ui.Warning("Nothing written. The upgrade would do: "+printer.Summary()))
+		}
 	case "sync":
 		status, err = runSync(rest, streams, printer)
 	case "check":
@@ -81,7 +109,7 @@ func Run(args []string, streams IO) int {
 	case "date":
 		err = runDate(rest, streams)
 	case "version", "--version":
-		fmt.Fprintln(streams.Out, Version)
+		fmt.Fprintln(streams.Out, version())
 	case "help", "-h", "--help":
 		fmt.Fprint(streams.Out, usage)
 	default:
@@ -152,7 +180,7 @@ func runInit(args []string, streams IO, out report.Sink) error {
 	if err != nil {
 		return err
 	}
-	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
 	return installer.Init(clients)
 }
 
@@ -295,4 +323,19 @@ func runDate(args []string, streams IO) error {
 	}
 	fmt.Fprintln(streams.Out, now().Format(time.DateOnly))
 	return nil
+}
+
+// runUpgrade reports whether it applied the upgrade rather than previewing it.
+func runUpgrade(args []string, streams IO, out report.Sink) (bool, error) {
+	flags, root := newFlags("upgrade", streams)
+	apply := flags.Bool("apply", false, "write the changes instead of previewing them")
+	if err := flags.Parse(args); err != nil {
+		return true, err
+	}
+	path, err := absolute(*root)
+	if err != nil {
+		return true, err
+	}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
+	return *apply, installer.Upgrade(*apply)
 }

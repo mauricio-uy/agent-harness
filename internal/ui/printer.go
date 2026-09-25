@@ -81,6 +81,9 @@ func label(style lipgloss.Style, kind report.Kind, line string) string {
 	return style.Render(name) + line[len(name):]
 }
 
+// Count returns how many lines counted as action, such as "created".
+func (p *Printer) Count(action string) int { return p.counts[action] }
+
 // Summary describes the counted actions, such as "40 created · 2 skipped".
 func (p *Printer) Summary() string {
 	var parts []string

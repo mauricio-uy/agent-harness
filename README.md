@@ -102,6 +102,7 @@ These are the commands you'll use day to day:
 | `harness check --staged` | Runs the same checks on what you're about to commit. The Git hook uses this one. |
 | `harness check --format json` | Prints the results as a single JSON document, so an agent or a script can read them. |
 | `harness link` | Recreates the skill links for the agents you chose. |
+| `harness upgrade` | Shows what a newer version of the harness would change in your project. Add `--apply` to do it. |
 | `harness id plan` | Prints the next free ID for a type of document, such as `PLAN-000004`. The skills use it so agents don't pick IDs by hand. |
 | `harness date` | Prints today's date from your system. The skills use it for every date they write. |
 
@@ -113,6 +114,12 @@ What `harness check` looks at:
 - Every index matches the documents, and every document is inside `records/`.
 - The skills follow the Agent Skills specification.
 - Every local link and heading anchor works. If a link points to a document that was moved, it suggests where it went.
+
+## Updating the harness
+
+`harness init` records in `.agents/harness.json` the version it installed and a fingerprint of every file it wrote. After you update the CLI, run `harness upgrade` in your project to see what the new version changes, and `harness upgrade --apply` to write it.
+
+An upgrade only replaces a file that is still exactly as the harness left it. If you or your agent edited a file, like `AGENTS.md` or `docs/overview.md`, it stays as it is and the upgrade tells you, so you can bring over the changes you want by hand. Line ending conversions made by Git don't count as edits. A file the new version no longer installs is left in place and reported. The indexes aren't touched either: run `harness sync --apply` afterwards to regenerate them.
 
 ## References
 

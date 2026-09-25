@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -152,5 +153,45 @@ func TestIDAndDatePrintOneBareLine(t *testing.T) {
 		if status, _ := run(t, nil, args...); status != 1 {
 			t.Errorf("%v must fail", args)
 		}
+	}
+}
+
+func TestVersionPrefersLinkerThenModuleThenDev(t *testing.T) {
+	module := func(v string) *debug.BuildInfo { return &debug.BuildInfo{Main: debug.Module{Version: v}} }
+	for _, c := range []struct {
+		linked string
+		info   *debug.BuildInfo
+		want   string
+	}{
+		{"v1.2.3", module("v0.9.0"), "v1.2.3"},
+		{"", module("v0.9.0"), "v0.9.0"},
+		{"", module("(devel)"), "dev"},
+		{"", nil, "dev"},
+	} {
+		if got := resolveVersion(c.linked, c.info); got != c.want {
+			t.Errorf("resolveVersion(%q, %v) = %q, want %q", c.linked, c.info, got, c.want)
+		}
+	}
+}
+
+func TestUpgradePreviewsThenApplies(t *testing.T) {
+	root := t.TempDir()
+	if status, out := run(t, nil, "upgrade", "--root", root); status != 1 || !strings.Contains(out, "harness init") {
+		t.Fatalf("upgrade needs an installation: %d\n%s", status, out)
+	}
+	run(t, nil, "init", "--root", root, "--clients", "none")
+	agents := filepath.Join(root, "AGENTS.md")
+	os.Remove(agents)
+	if status, out := run(t, nil, "upgrade", "--root", root); status != 0 || !strings.Contains(out, "CREATE AGENTS.md") {
+		t.Fatalf("preview: %d\n%s", status, out)
+	}
+	if _, err := os.Stat(agents); err == nil {
+		t.Fatal("the preview must not write")
+	}
+	if status, out := run(t, nil, "upgrade", "--root", root, "--apply"); status != 0 {
+		t.Fatalf("apply: %d\n%s", status, out)
+	}
+	if _, err := os.Stat(agents); err != nil {
+		t.Fatal("apply must restore the file")
 	}
 }

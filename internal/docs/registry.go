@@ -74,3 +74,16 @@ func (t DocType) hasID(id string) bool {
 	number, ok := strings.CutPrefix(id, t.Prefix+"-")
 	return ok && sixDigits.MatchString(number)
 }
+
+// IsGeneratedIndex reports whether rel, a slash-separated path from the
+// project root, is an index that synchronization generates.
+func IsGeneratedIndex(rel string) bool {
+	for _, t := range documentTypes() {
+		for _, ix := range indexesOf(t) {
+			if rel == "docs/"+t.Folder+"/"+ix.name+".md" {
+				return true
+			}
+		}
+	}
+	return false
+}
