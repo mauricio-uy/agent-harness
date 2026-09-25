@@ -3,12 +3,10 @@ package ui
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/huh/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/mauricio-uy/agent-harness/internal/install"
 )
@@ -34,19 +32,17 @@ func SelectClients() ([]string, error) {
 }
 
 func clientField(selected *[]string) *huh.MultiSelect[string] {
-	summary := lipgloss.NewStyle().Faint(true)
 	options := make([]huh.Option[string], len(install.Clients))
 	for i, c := range install.Clients {
-		options[i] = huh.NewOption(fmt.Sprintf("%-12s %s", c.Name, summary.Render(c.Summary)), c.ID)
+		options[i] = huh.NewOption(c.Name, c.ID)
 	}
+	// Keys are listed only in the help bar under the list.
 	return huh.NewMultiSelect[string]().
-		Title("Which clients should the harness configure?").
-		// Keys are listed only in the help bar under the list, so they cannot disagree.
-		Description("The base installation always goes to .agents/ and docs/.").
+		Title("Which agents should the harness set up?").
 		Options(options...).
 		Filterable(true).
-		// The title, description, and every client stay visible without scrolling.
-		Height(len(options) + 3).
+		// The title and every client stay visible without scrolling.
+		Height(len(options) + 2).
 		Value(selected)
 }
 

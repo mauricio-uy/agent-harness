@@ -94,7 +94,12 @@ func Run(args []string, streams IO) int {
 		summarize(printer, err)
 	case "doctor":
 		err = runDoctor(rest, streams, printer)
-		summarize(printer, err)
+		if err == nil && printer.Count("warnings") == 0 {
+			report.Blank(printer)
+			printer.Emit(report.Plain, ui.Success("everything is set up"))
+		} else {
+			summarize(printer, err)
+		}
 	case "upgrade":
 		var applied bool
 		applied, err = runUpgrade(rest, streams, printer)

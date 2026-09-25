@@ -56,12 +56,15 @@ func TestClientSelectorListsEveryClientWithItsKeys(t *testing.T) {
 	field.Focus()
 	view := ansi.Strip(field.View())
 	for _, c := range install.Clients {
-		if !strings.Contains(view, c.Name) || !strings.Contains(view, c.Summary) {
+		if !strings.Contains(view, c.Name) {
 			t.Errorf("selector lacks %s:\n%s", c.Name, view)
 		}
 	}
-	if strings.Contains(view, "toggle") {
-		t.Errorf("keys belong only in the help bar, not in the description:\n%s", view)
+	// Only the names: no summaries of what each client adds, no description.
+	for _, extra := range []string{".claude", "opencode.json", ".agents", "toggle"} {
+		if strings.Contains(view, extra) {
+			t.Errorf("the selector must show only the client names, found %q:\n%s", extra, view)
+		}
 	}
 	field.WithKeyMap(keyMap())
 	var help []string

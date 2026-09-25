@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -204,5 +205,22 @@ func TestDoctorFailsOnlyOnProblems(t *testing.T) {
 	run(t, nil, "init", "--root", root, "--clients", "none")
 	if status, out := run(t, nil, "doctor", "--root", root); status != 0 || !strings.Contains(out, "WARN") {
 		t.Fatalf("warnings alone must not fail: %d\n%s", status, out)
+	}
+}
+
+func TestDoctorSummarizesAHealthySetup(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := t.TempDir()
+	for _, args := range [][]string{{"init", "--quiet"}, {"config", "core.hooksPath", ".githooks"}} {
+		if output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, output)
+		}
+	}
+	run(t, nil, "init", "--root", root, "--clients", "none")
+	status, out := run(t, nil, "doctor", "--root", root)
+	if status != 0 || !strings.Contains(out, "everything is set up") || strings.Contains(out, "no changes") {
+		t.Fatalf("status %d:\n%s", status, out)
 	}
 }

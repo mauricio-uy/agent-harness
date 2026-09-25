@@ -21,14 +21,14 @@ import (
 )
 
 // Client is a product that loads Agent Skills, in the specification's terms.
-type Client struct{ ID, Name, Summary string }
+type Client struct{ ID, Name string }
 
 // Clients lists the supported clients in the order they are offered.
 var Clients = []Client{
-	{"claude-code", "Claude Code", "links each skill into .claude/skills; write-plan gets a manual-only adapter"},
-	{"codex", "Codex", "adds agents/openai.yaml invocation policies to each skill"},
-	{"opencode", "OpenCode", "denies automatic write-plan loading in opencode.json and adds a /write-plan command"},
-	{"pi", "Pi", "reads .agents/skills and AGENTS.md directly; nothing to add"},
+	{"claude-code", "Claude Code"},
+	{"codex", "Codex"},
+	{"opencode", "OpenCode"},
+	{"pi", "Pi"},
 }
 
 const stateFile = ".agents/harness.json"
