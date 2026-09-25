@@ -1,110 +1,120 @@
 # Agent Harness
 
-A documentation-first harness for working with coding agents. It installs a set of skills and a `docs/` structure into a project, so that plans, specifications, research, and operational runbooks are written as versioned documents, reviewed by a human, and kept consistent by a CLI.
+Agent Harness helps you work with coding agents through documents. It adds a set of skills and a `docs/` folder to your project, so plans, specifications, research and runbooks end up written down, reviewed by you and kept in order by a small CLI.
 
-Skills follow the [Agent Skills specification](https://agentskills.io/specification). Any client that reads `.agents/skills/` can use them; the CLI adds what Claude Code, Codex, OpenCode, and Pi need on top.
+The skills follow the [Agent Skills specification](https://agentskills.io/specification), so any agent that reads `.agents/skills/` can use them. On top of that, the CLI knows what Claude Code, Codex, OpenCode and Pi need to work well with them.
 
 ## How it works
 
-- **Work goes through documents.** An agent drafts a plan, a specification, a research report, or a runbook; a human reviews it; approval is recorded in the document's frontmatter against a specific revision.
-- **Implementation needs an approved plan.** The shared rules in `AGENTS.md` tell every agent to implement only an approved plan, through the `implement-plan` skill, and to consult the human before expanding scope. `write-plan` runs only when the human invokes it.
-- **Execution is recorded in the plan.** `implement-plan` works in small test-first steps and keeps a checkpoint in the plan, so work can pause and resume in another session.
-- **The CLI keeps the documents consistent.** It validates metadata and approvals, regenerates indexes, and checks every local link, before each commit through a Git hook and in CI if you add it.
+The agent writes the document and you decide. When you ask for a plan, a specification, a research report or a runbook, the agent drafts it and waits for your review. Your approval is recorded in the document itself, tied to the revision you read.
 
-The harness does not authenticate approvals or force an agent to follow the rules; it gives agents explicit instructions and makes deviations visible in the documents.
+Code only gets written from an approved plan. The rules in `AGENTS.md` ask every agent to implement through the `implement-plan` skill, and to check with you before going beyond what you approved. The `write-plan` skill only runs when you call it.
+
+Progress is saved in the plan. `implement-plan` works in small steps, writing tests first, and keeps a checkpoint inside the plan. If a session ends halfway, the next one knows where to pick up.
+
+The CLI keeps everything consistent. It validates the documents and their approvals, rebuilds the indexes and checks that every local link works. A Git hook runs these checks before each commit.
+
+Keep in mind that the harness guides the agent but can't force it. It doesn't verify who approved something, and an agent could still ignore the rules. What it does is make those cases easy to spot in the documents.
 
 ## What gets installed
 
-[template/](template/) is exactly what `harness init` copies into a project:
+The [template/](template/) folder is exactly what `harness init` copies into your project, so you can look around before trying it.
 
-| Path | Content |
+| Path | What's inside |
 | --- | --- |
-| [AGENTS.md](template/AGENTS.md) | Shared rules for every agent and subagent. |
-| [.agents/skills/](template/.agents/skills/) | The skills below, with their formats and templates. |
-| [.agents/shared/](template/.agents/shared/README.md) | Formats for the project overview and glossary. |
-| [docs/](template/docs/README.md) | One folder per document type, a project [overview](template/docs/overview.md), and a [glossary](template/docs/glossary.md). |
-| [.githooks/pre-commit](template/.githooks/pre-commit) | Runs `harness check --staged` before each commit. |
+| [AGENTS.md](template/AGENTS.md) | The rules every agent follows. |
+| [.agents/skills/](template/.agents/skills/) | The skills, with their formats and templates. |
+| [.agents/shared/](template/.agents/shared/README.md) | Formats for the project overview and the glossary. |
+| [docs/](template/docs/README.md) | A folder for each type of document, plus a project [overview](template/docs/overview.md) and a [glossary](template/docs/glossary.md). |
+| [.githooks/pre-commit](template/.githooks/pre-commit) | Runs the checks before each commit. |
 
-| Skill | Purpose |
+These are the skills:
+
+| Skill | What it's for |
 | --- | --- |
-| [write-plan](template/.agents/skills/write-plan/SKILL.md) | Draft or revise an implementation plan for approval. |
-| [implement-plan](template/.agents/skills/implement-plan/SKILL.md) | Implement or resume an approved plan, test first. |
-| [write-specification](template/.agents/skills/write-specification/SKILL.md) | Draft architectural decisions, use cases, and requirements. |
-| [write-research-report](template/.agents/skills/write-research-report/SKILL.md) | Investigate a question and document the evidence. |
-| [write-runbook](template/.agents/skills/write-runbook/SKILL.md) | Document an operational or incident procedure. |
+| [write-plan](template/.agents/skills/write-plan/SKILL.md) | Writing or revising an implementation plan for you to approve. |
+| [implement-plan](template/.agents/skills/implement-plan/SKILL.md) | Carrying out an approved plan, or picking it up where it stopped. |
+| [write-specification](template/.agents/skills/write-specification/SKILL.md) | Recording architecture decisions, use cases and requirements. |
+| [write-research-report](template/.agents/skills/write-research-report/SKILL.md) | Looking into a question and writing down what was found. |
+| [write-runbook](template/.agents/skills/write-runbook/SKILL.md) | Documenting how to run an operation or respond to an incident. |
 
-## Document layout
+## How documents are organized
 
-Every document type shares one layout, shown here for [plans](template/docs/plans/README.md):
+Every type of document uses the same layout. Here it is for [plans](template/docs/plans/README.md):
 
 ```
 docs/plans/
-  README.md            what each state means, with a link to its index
-  draft.md             generated index, one per state
+  README.md            explains each state and links to its index
+  draft.md             one index per state, generated by the CLI
   in-progress.md
   ...
   records/
     PLAN-000001-slug.md
 ```
 
-Documents live in `records/` and never move, so links to them keep working from inside and outside the repository. A status change moves only a row from one index to another, and an agent or a person opens only the index of the state they need.
+Documents live in `records/` and stay there for good, so a link to a plan keeps working after its status changes, even if you shared it in an issue or a chat. When a status changes, only its row moves from one index to another. That way an agent, or you, can open just the list you care about, like the plans in progress, without loading everything else.
 
-## Clients
+## Supported agents
 
-Clients are chosen during installation; the base installation works without any. Skills are linked rather than copied, so no client reads the same skill twice.
+You choose which agents to set up during installation. The base install works with none of them. Skills are linked instead of copied, so no agent reads the same skill twice.
 
-| Client | What `harness init` adds |
+| Agent | What `harness init` adds |
 | --- | --- |
-| Claude Code | A link to each skill in `.claude/skills/`, and a manual-only adapter for `write-plan`. An existing `CLAUDE.md` gets an `@AGENTS.md` import; none is created, since Claude Code reads `AGENTS.md` when there is no `CLAUDE.md`. |
-| Codex | An `agents/openai.yaml` invocation policy in each skill. |
-| OpenCode | `opencode.json` entries that deny automatic `write-plan` loading, and a `/write-plan` command. |
-| Pi | Nothing; Pi reads `.agents/skills/` and `AGENTS.md` directly. |
+| Claude Code | A link to each skill in `.claude/skills/`, and a version of `write-plan` that only runs when you call it. Claude Code reads `AGENTS.md` on its own, so no `CLAUDE.md` is needed. **Check your setup:** if your project already has a `CLAUDE.md` or `CLAUDE.local.md`, Claude Code reads that file instead of `AGENTS.md`. To load both, set "Project instructions" to include `AGENTS.md` in `/config`. |
+| Codex | An `agents/openai.yaml` file in each skill that tells Codex when it can use it. |
+| OpenCode | A few entries in `opencode.json` that stop it from loading `write-plan` by itself, and a `/write-plan` command. |
+| Pi | Nothing. Pi reads `.agents/skills/` and `AGENTS.md` directly. |
 
-The client files are in [template-clients/](template-clients/). How each client invokes the skills:
+You can see these files in [template-clients/](template-clients/). Here is how you call the skills in each agent:
 
 | Skill | Codex | Claude Code | OpenCode | Pi |
 | --- | --- | --- | --- | --- |
-| write-plan | `$write-plan` only | `/write-plan` only | `/write-plan` only | `/skill:write-plan` or automatic |
-| Other skills | Automatic or `$name` | Automatic or `/name` | Automatic | Automatic or `/skill:name` |
+| write-plan | `$write-plan` | `/write-plan` | `/write-plan` | `/skill:write-plan` |
+| The rest | `$name`, or automatic | `/name`, or automatic | Automatic | `/skill:name`, or automatic |
 
-Pi can only restrict automatic invocation through a frontmatter field outside the specification, so there the restriction on `write-plan` rests on the skill's own instructions.
+In Codex, Claude Code and OpenCode, `write-plan` only runs when you call it. Pi has no standard way to prevent that, so there it relies on the skill's own instructions and the agent could still pick it up by itself.
 
-## Try it
+## Trying it out
 
-There are no prebuilt binaries yet. With Go 1.26 or newer:
+There are no prebuilt binaries yet. If you have Go 1.26 or newer, install the CLI with:
 
 ```sh
 go install github.com/mauricio-uy/agent-harness/cmd/harness@latest
 ```
 
-Then, in a project:
+Then, inside your project:
 
 ```sh
-harness init                  # pick clients with the keyboard, or pass --clients claude-code,codex
+harness init
 git config core.hooksPath .githooks
 ```
 
-`init` never overwrites an existing file; it reports it and leaves it to you. After installing, ask your agent to complete `docs/overview.md`. Skill links are local to each clone, so other clones run `harness link` once.
+`init` asks which agents to set up. Use the arrows to move, space to select and enter to confirm. You can also skip the question with `--clients claude-code,codex`. It never overwrites a file you already have. If something is in the way, it tells you and leaves it alone.
+
+Once it's installed, ask your agent to fill in `docs/overview.md` with a short description of the project. The skill links only exist on your machine, so anyone else who clones the project runs `harness link` once.
+
+These are the commands you'll use day to day:
 
 | Command | What it does |
 | --- | --- |
-| `harness sync` | Validates documents and previews index changes; `--apply` writes them. |
-| `harness check` | Runs every check without writing anything. |
-| `harness check --staged` | Runs the same checks on what is staged for commit; the pre-commit hook uses it. |
-| `harness link` | Recreates the skill links for the clients chosen at installation. |
+| `harness sync` | Checks the documents and shows which indexes would change. Add `--apply` to update them. |
+| `harness check` | Runs every check without changing anything. |
+| `harness check --staged` | Runs the same checks on what you're about to commit. The Git hook uses this one. |
+| `harness link` | Recreates the skill links for the agents you chose. |
 
-`check` verifies:
+What `harness check` looks at:
 
-- **Documents:** required frontmatter, unique IDs that match their filenames, valid states and dates, approval of the current revision where a state requires it, relations that point to exactly one document, and replacements without cycles.
-- **Indexes:** each one matches the documents' frontmatter.
-- **Layout:** documents sit in `records/`.
-- **Skills:** frontmatter follows the Agent Skills specification.
-- **Links:** every local Markdown link and heading anchor resolves; a link to a moved document gets a suggested destination.
+- Each document has the fields it needs, a unique ID that matches its file name, a valid state and consistent dates.
+- A document that needs approval in its current state is approved for its current revision.
+- References to other documents point to exactly one document, and replacements don't go in circles.
+- Every index matches the documents, and every document is inside `records/`.
+- The skills follow the Agent Skills specification.
+- Every local link and heading anchor works. If a link points to a document that was moved, it suggests where it went.
 
 ## References
 
 - [Agent Skills specification](https://agentskills.io/specification)
-- [Codex skills and invocation policy](https://learn.chatgpt.com/docs/build-skills)
+- [Codex skills](https://learn.chatgpt.com/docs/build-skills)
 - [Claude Code skills](https://code.claude.com/docs/en/skills) and [AGENTS.md support](https://code.claude.com/docs/en/memory)
 - [OpenCode skills](https://opencode.ai/docs/skills/) and [commands](https://opencode.ai/docs/commands/)
 - [Pi skills](https://pi.dev/docs/latest/skills)
