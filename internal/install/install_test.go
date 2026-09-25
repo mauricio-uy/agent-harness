@@ -154,16 +154,13 @@ func TestLinkRefusesToReplaceARealDirectory(t *testing.T) {
 	}
 }
 
-func TestClaudeMDGetsAnImportOnlyWhenItExists(t *testing.T) {
+func TestExistingClaudeMDIsLeftUntouched(t *testing.T) {
 	root := t.TempDir()
-	os.WriteFile(filepath.Join(root, "CLAUDE.md"), []byte("# Team notes\n"), 0o644)
+	const notes = "# Team notes\n"
+	os.WriteFile(filepath.Join(root, "CLAUDE.md"), []byte(notes), 0o644)
 	install(t, root, "claude-code")
-	if got := read(t, root, "CLAUDE.md"); got != "@AGENTS.md\n\n# Team notes\n" {
-		t.Fatalf("CLAUDE.md = %q", got)
-	}
-	install(t, root, "claude-code")
-	if got := read(t, root, "CLAUDE.md"); strings.Count(got, "@AGENTS.md") != 1 {
-		t.Fatalf("import must not repeat: %q", got)
+	if got := read(t, root, "CLAUDE.md"); got != notes {
+		t.Fatalf("CLAUDE.md must not change: %q", got)
 	}
 }
 

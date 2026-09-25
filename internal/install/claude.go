@@ -129,27 +129,3 @@ func (in *Installer) updateIgnoreBlock(entries []string) error {
 	fmt.Fprintln(in.Out, "UPDATE .gitignore (skill links)")
 	return nil
 }
-
-// importAgentsInClaudeMD adds an AGENTS.md import to an existing CLAUDE.md,
-// because Claude Code reads AGENTS.md on its own only when no CLAUDE.md exists.
-// A missing CLAUDE.md is not created.
-func (in *Installer) importAgentsInClaudeMD() error {
-	target := filepath.Join(in.Root, "CLAUDE.md")
-	raw, err := os.ReadFile(target)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(line) == "@AGENTS.md" {
-			return nil
-		}
-	}
-	if err := os.WriteFile(target, append([]byte("@AGENTS.md\n\n"), raw...), 0o644); err != nil {
-		return err
-	}
-	fmt.Fprintln(in.Out, "UPDATE CLAUDE.md (imports AGENTS.md)")
-	return nil
-}

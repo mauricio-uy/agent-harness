@@ -118,10 +118,7 @@ func (in *Installer) addClient(id string) error {
 		if err := in.copyTree("template-clients/claude-code"); err != nil {
 			return err
 		}
-		if err := in.linkClaudeSkills(); err != nil {
-			return err
-		}
-		return in.importAgentsInClaudeMD()
+		return in.linkClaudeSkills()
 	case "codex":
 		return in.copyTree("template-clients/codex")
 	case "opencode":
