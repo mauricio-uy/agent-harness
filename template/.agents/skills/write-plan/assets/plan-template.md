@@ -1,5 +1,6 @@
 ---
 id: PLAN-000001
+type: plan
 title: Replace with a concise plan title
 status: draft
 created: YYYY-MM-DD
@@ -8,6 +9,7 @@ revision: 1
 approval:
   revision: null
   date: null
+related: []
 ---
 
 # Replace with the plan title

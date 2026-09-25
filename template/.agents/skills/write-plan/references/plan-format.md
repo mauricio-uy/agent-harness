@@ -10,6 +10,7 @@ The YAML frontmatter is the source of truth. Each plan has:
 | Field | Meaning |
 | --- | --- |
 | `id` | Unique, permanent `PLAN-000001` style identifier matching the filename. |
+| `type` | Always `plan`. |
 | `title` | Short, single-line description. |
 | `status` | One of the states below; it decides which index lists the plan. |
 | `created` | Creation date, `YYYY-MM-DD`; never reset. |
@@ -17,9 +18,11 @@ The YAML frontmatter is the source of truth. Each plan has:
 | `revision` | Positive integer identifying the content submitted for approval. |
 | `approval.revision` | Last explicitly approved revision, or `null`. |
 | `approval.date` | Date of that approval, or `null`. |
-| `superseded_by` | Replacement plan ID; required only for `superseded` plans. |
+| `related` | List of unique existing document or plan IDs, such as the ADRs and requirements the plan implements; use `[]` when none apply. |
+| `supersedes` | Optional list of existing plan IDs this plan replaces; defaults to `[]`. |
 
 Approval fields are both null or both populated. Approval revision cannot exceed the current revision. Approval dates must fall between creation and update dates.
+Do not repeat IDs across relation lists, refer to the plan itself, or create replacement cycles. Every relation must resolve to exactly one document.
 The record documents human approval; it is not independent evidence of identity or authorization. Do not invent conversation links or signatures.
 
 ## States
@@ -32,10 +35,11 @@ The record documents human approval; it is not independent evidence of identity 
 | `in-progress` | Approved work is being executed. |
 | `completed` | Implementation and planned verification finished; human acceptance is separate. |
 | `cancelled` | Work abandoned; record why in the body. |
-| `superseded` | Replaced by another existing plan; record why and set `superseded_by`. |
+| `superseded` | Replaced by an approved plan that lists this one in `supersedes`; record why. |
 
 Normal progression: `draft` -> `awaiting-approval` -> `approved` -> `in-progress` -> `completed`.
 `approved`, `in-progress`, and `completed` require approval of the current revision. Cancellation or replacement must reflect a human decision or an already approved plan.
+To replace a plan, list the old ID in the new plan's `supersedes`. Mark the old plan `superseded` only after the human approves the replacement.
 
 Increment `revision` when changing content that requires approval. Return to `draft` or `awaiting-approval` and retain the earlier approval record; it does not authorize the new revision. A revoked approval must be cleared and the plan returned for review. Checkbox updates, dates, and editorial fixes do not change the revision.
 

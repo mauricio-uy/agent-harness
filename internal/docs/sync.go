@@ -17,8 +17,8 @@ type DocType struct {
 	// States lists the lifecycle states in index order. A type without states
 	// gets a single all.md index, so states can be added later without moving files.
 	States []string
-	// Approved is the state that records approval of the current revision.
-	Approved string
+	// Approved lists the states that require approval of the current revision.
+	Approved []string
 }
 
 // RecordsDir is the directory, inside each type's folder, that holds its documents.
@@ -30,9 +30,7 @@ type Suite struct {
 	Name     string
 	Types    []DocType
 	validate func(record, DocType, *Suite) []string
-	// relations checks references across records; nil uses relationErrors.
-	relations func(records []record, catalog map[string][]record) []string
-	columns   []column
+	columns  []column
 }
 
 type column struct {
@@ -55,15 +53,15 @@ func reviewStates(approved string) []string {
 
 // Specifications covers ADRs, use cases, and functional and non-functional requirements.
 var Specifications = &Suite{Name: "specifications", Types: []DocType{
-	{"adr", "ADR", "decisions", "Architecture Decision Records", reviewStates("accepted"), "accepted"},
-	{"use-case", "UC", "use-cases", "Use Cases", reviewStates("approved"), "approved"},
-	{"functional-requirement", "FR", "requirements/functional", "Functional Requirements", reviewStates("approved"), "approved"},
-	{"non-functional-requirement", "NFR", "requirements/non-functional", "Non-Functional Requirements", reviewStates("approved"), "approved"},
+	{"adr", "ADR", "decisions", "Architecture Decision Records", reviewStates("accepted"), []string{"accepted"}},
+	{"use-case", "UC", "use-cases", "Use Cases", reviewStates("approved"), []string{"approved"}},
+	{"functional-requirement", "FR", "requirements/functional", "Functional Requirements", reviewStates("approved"), []string{"approved"}},
+	{"non-functional-requirement", "NFR", "requirements/non-functional", "Non-Functional Requirements", reviewStates("approved"), []string{"approved"}},
 }}
 
 // Research covers research records.
 var Research = &Suite{Name: "research", Types: []DocType{
-	{"research", "RES", "research", "Research", reviewStates("approved"), "approved"},
+	{"research", "RES", "research", "Research", reviewStates("approved"), []string{"approved"}},
 }}
 
 var (
@@ -74,7 +72,7 @@ var (
 // Runbooks covers operational runbooks, which add ownership and validation records.
 var Runbooks = &Suite{
 	Name:     "runbooks",
-	Types:    []DocType{{"runbook", "RUN", "runbooks", "Runbooks", runbookStates, "approved"}},
+	Types:    []DocType{{"runbook", "RUN", "runbooks", "Runbooks", runbookStates, []string{"approved"}}},
 	validate: validateRunbook,
 	columns: []column{
 		{"Validation", func(data map[string]any) string { return fmt.Sprint(asMap(data["validation"])["status"]) }},
@@ -91,13 +89,13 @@ func (s *Suite) owns(prefix string) bool {
 	return slices.ContainsFunc(s.Types, func(t DocType) bool { return t.Prefix == prefix })
 }
 
-func (s *Suite) approvedState(kind string) string {
+func (s *Suite) approvedStates(kind string) []string {
 	for _, t := range s.Types {
 		if t.Kind == kind {
 			return t.Approved
 		}
 	}
-	return ""
+	return nil
 }
 
 func asMap(value any) map[string]any {
@@ -168,9 +166,12 @@ func validateDocument(r record, t DocType, allowed []string) []string {
 				errors = append(errors, "approval.date must fall between created and updated")
 			}
 		}
-		if status == t.Approved && (!approvedOK || !revisionOK || approved != revision || when == nil) {
+		if slices.Contains(t.Approved, status) && (!approvedOK || !revisionOK || approved != revision || when == nil) {
 			errors = append(errors, status+" requires approval of the current revision")
 		}
+	}
+	if _, legacy := data["superseded_by"]; legacy {
+		errors = append(errors, "superseded_by is no longer used. List this document in its successor's supersedes")
 	}
 	seen := map[string]bool{}
 	for _, field := range []string{"related", "supersedes"} {
@@ -355,7 +356,7 @@ func (s *Suite) relationErrors(records []record, catalog map[string][]record) []
 		approved := slices.ContainsFunc(replacements[identifier], func(successor replacement) bool {
 			status, _ := successor.data["status"].(string)
 			_, revisionOK := PositiveInt(asMap(successor.data["approval"])["revision"])
-			return (status == s.approvedState(successor.kind) || status == "superseded" || status == "retired") && revisionOK
+			return (slices.Contains(s.approvedStates(successor.kind), status) || status == "superseded" || status == "retired") && revisionOK
 		})
 		if !approved {
 			errors = append(errors, r.rel+": superseded document requires an approved replacement")
@@ -542,11 +543,7 @@ func (s *Suite) Sync(root string, apply, check bool, out io.Writer) int {
 			errors = append(errors, fmt.Sprintf("duplicate ID %s: %s", identifier, strings.Join(paths, ", ")))
 		}
 	}
-	if s.relations != nil {
-		errors = append(errors, s.relations(records, catalog)...)
-	} else {
-		errors = append(errors, s.relationErrors(records, catalog)...)
-	}
+	errors = append(errors, s.relationErrors(records, catalog)...)
 	if len(errors) > 0 {
 		return reportErrors(out, errors)
 	}
