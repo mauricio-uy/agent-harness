@@ -130,7 +130,8 @@ func TestUpgradeTreatsLineEndingsAsUnchanged(t *testing.T) {
 	}
 }
 
-func TestUpgradeAdoptsAnInstallationWithoutHashes(t *testing.T) {
+// A file the record does not know is kept unless it already matches the payload.
+func TestUpgradeKeepsFilesOfUnknownOrigin(t *testing.T) {
 	root := t.TempDir()
 	v1 := payload(map[string]string{"AGENTS.md": "rules\n", "docs/overview.md": "overview\n"})
 	runInstaller(t, root, v1, "", func(in *Installer) error { return in.Init(nil) })

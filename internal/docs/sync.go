@@ -171,9 +171,6 @@ func validateDocument(r record, t DocType, allowed []string) []string {
 			errors = append(errors, status+" requires approval of the current revision")
 		}
 	}
-	if _, legacy := data["superseded_by"]; legacy {
-		errors = append(errors, "superseded_by is no longer used. List this document in its successor's supersedes")
-	}
 	seen := map[string]bool{}
 	for _, field := range []string{"related", "supersedes"} {
 		value, present := data[field]

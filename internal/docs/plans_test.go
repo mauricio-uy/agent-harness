@@ -113,14 +113,6 @@ func TestPlanUsesTheSharedDocumentFields(t *testing.T) {
 	r.contains(t, "missing field: type", "missing field: related")
 }
 
-func TestLegacySupersededByIsExplained(t *testing.T) {
-	f := newFixture(t)
-	f.plan(1, "draft", "null", 1, field{"superseded_by", "PLAN-000002"})
-	r := f.sync("plans", true, false)
-	expectStatus(t, r, 1)
-	r.contains(t, "superseded_by is no longer used")
-}
-
 func TestSupersededPlanRequiresAnApprovedSuccessor(t *testing.T) {
 	f := newFixture(t)
 	f.plan(1, "superseded", "1", 1)
