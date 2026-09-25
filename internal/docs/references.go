@@ -37,6 +37,11 @@ func checkReferences(root string, files tree) (int, []LinkError) {
 			start := m[2]
 			ref := strings.TrimRight(l.text[start:m[3]], ".")
 			paths = append(paths, [2]int{start, start + len(ref)})
+			// Documents are Markdown. Other paths into docs/, such as the
+			// output folder of a documentation generator, are not references.
+			if !strings.HasSuffix(ref, ".md") {
+				continue
+			}
 			count++
 			rel := ref
 			for strings.HasPrefix(rel, "./") || strings.HasPrefix(rel, "../") {
@@ -97,9 +102,11 @@ func inside(spans [][2]int, offset int) bool {
 	return false
 }
 
-// searched excludes Markdown, which the link checker reads, and the
-// installation record, which lists installed files rather than references.
-var searched = []string{":(exclude)*.md", ":(exclude).agents/harness.json"}
+// searched excludes Markdown, which the link checker reads, the installation
+// record, which lists installed files rather than references, and files the
+// project marks with the harness-ignore attribute in .gitattributes, such as
+// tests with example IDs. Git applies attributes only inside a repository.
+var searched = []string{":(exclude)*.md", ":(exclude).agents/harness.json", ":(exclude,attr:harness-ignore)"}
 
 // stagedSplit is the number of files changed since staging above which the
 // staged content is searched as a whole instead of file by file.

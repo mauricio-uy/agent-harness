@@ -121,7 +121,15 @@ What `harness check` looks at:
 - Every index matches the documents, and every document is inside `records/`.
 - The skills follow the Agent Skills specification.
 - Every local link and heading anchor works. If a link points to a document that was moved, it suggests where it went.
-- Code and every other tracked file that isn't Markdown only mention documents that exist. That covers a document ID such as `ADR-000003`, which has to match exactly one document, and a path into `docs/`. Staged checks read what you're about to commit.
+- Code and every other tracked file that isn't Markdown only mention documents that exist. That covers a document ID such as `ADR-000003`, which has to match exactly one document, and a path to a Markdown file in `docs/`. Other paths into `docs/`, like the output folder of a documentation generator, are left alone. Staged checks read what you're about to commit.
+
+If some files mention IDs that aren't real references, like example data in tests, exclude them in `.gitattributes`:
+
+```
+tests/** harness-ignore
+```
+
+Git only applies this inside a repository, so outside one those files are still checked.
 
 ## Git hook
 

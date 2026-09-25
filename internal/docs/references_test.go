@@ -47,6 +47,9 @@ func TestCodeReferencesToDocumentsMustResolve(t *testing.T) {
 		"// Missing: docs/nowhere.md.",
 	}, "\n")+"\n")
 	f.write("assets/logo.bin", "\x00\x01ADR-000009 docs/nowhere.md")
+	// Paths into docs/ that are not documents belong to other tools.
+	f.write(".gitignore", "docs/_build/\n")
+	f.write("package.json", `{"scripts": {"api": "typedoc --out docs/api"}}`+"\n")
 	f.write(".agents/harness.json", `{"files": {"docs/deleted.md": "sha256:0"}}`)
 	f.git("add", ".")
 	errors := referenceErrors(t, f, false)
@@ -88,5 +91,19 @@ func TestStagedCodeReferencesUseTheIndex(t *testing.T) {
 	}
 	if errors := referenceErrors(t, f, false); len(errors) != 0 {
 		t.Fatalf("the working tree is fixed and untracked files are ignored: %+v", errors)
+	}
+}
+
+func TestGitAttributeExcludesFilesFromReferenceChecks(t *testing.T) {
+	f := referenceFixture(t)
+	f.write(".gitattributes", "tests/** harness-ignore\n")
+	f.write("tests/parse_test.go", "// parse(\"ADR-000123\")\n")
+	f.write("src/app.go", "// ADR-000124\n")
+	f.git("add", ".")
+	for _, staged := range []bool{false, true} {
+		errors := referenceErrors(t, f, staged)
+		if len(errors) != 1 || errors[0].Destination != "ADR-000124" {
+			t.Errorf("staged=%v: only files without the attribute are checked: %+v", staged, errors)
+		}
 	}
 }
