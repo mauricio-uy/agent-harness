@@ -46,11 +46,7 @@ type record struct {
 	kind      string // empty for external documents that only establish identity
 }
 
-var (
-	documentID   = regexp.MustCompile(`^(?:ADR|UC|FR|NFR|RES|RUN|PLAN)-[0-9]{6}$`)
-	documentFile = regexp.MustCompile(`^((?:ADR|UC|FR|NFR|RES|RUN)-[0-9]{6})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$`)
-	externalFile = regexp.MustCompile(`^([A-Z]+-[0-9]{6})[-.]`)
-)
+var externalFile = regexp.MustCompile(`^([A-Z]+-[0-9]{6})[-.]`)
 
 // reviewStates are the states of a reviewed document whose approval state is approved.
 func reviewStates(approved string) []string {
@@ -118,7 +114,7 @@ func validateDocument(r record, t DocType, allowed []string) []string {
 		}
 	}
 	identifier, _ := data["id"].(string)
-	if !regexp.MustCompile(`^` + t.Prefix + `-[0-9]{6}$`).MatchString(identifier) {
+	if !t.hasID(identifier) {
 		errors = append(errors, fmt.Sprintf("id must use prefix %s and six digits", t.Prefix))
 	}
 	if match := documentFile.FindStringSubmatch(filepath.Base(r.path)); match == nil || match[1] != identifier {

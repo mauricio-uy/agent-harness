@@ -8,32 +8,22 @@ import (
 	"path/filepath"
 )
 
-// Suites lists the document synchronizations in the order they run.
-var Suites = []string{"plans", "specifications", "research", "runbooks"}
-
 // SyncSuite runs one named synchronization.
 func SyncSuite(name, root string, apply, check bool, out io.Writer) (int, error) {
-	switch name {
-	case "plans":
-		return Plans.Sync(root, apply, check, out), nil
-	case "specifications":
-		return Specifications.Sync(root, apply, check, out), nil
-	case "research":
-		return Research.Sync(root, apply, check, out), nil
-	case "runbooks":
-		return Runbooks.Sync(root, apply, check, out), nil
+	s := suiteNamed(name)
+	if s == nil {
+		return 1, fmt.Errorf("unknown document suite %q; choose one of %v", name, Suites)
 	}
-	return 1, fmt.Errorf("unknown document suite %q; choose one of %v", name, Suites)
+	return s.Sync(root, apply, check, out), nil
 }
 
 // Check runs every read-only validation: index synchronization, skill
 // frontmatter, and local links. Every check runs even if an earlier one fails.
 func Check(root string, links LinkReport, out io.Writer) int {
 	failed := false
-	for _, name := range Suites {
-		fmt.Fprintf(out, "\n== %s ==\n", name)
-		status, _ := SyncSuite(name, root, false, true, out)
-		failed = failed || status != 0
+	for _, s := range suites {
+		fmt.Fprintf(out, "\n== %s ==\n", s.Name)
+		failed = s.Sync(root, false, true, out) != 0 || failed
 	}
 	fmt.Fprintln(out, "\n== skills ==")
 	failed = CheckSkills(root, out) != 0 || failed

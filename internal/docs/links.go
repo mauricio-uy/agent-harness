@@ -31,10 +31,8 @@ type LinkError struct {
 }
 
 var (
-	markdown       = goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough))
-	documentPrefix = regexp.MustCompile(`^(?:PLAN|ADR|UC|FR|NFR|RES|RUN)-[0-9]{6}`)
-	documentAny    = regexp.MustCompile(`(?:PLAN|ADR|UC|FR|NFR|RES|RUN)-[0-9]{6}`)
-	uriScheme      = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
+	markdown  = goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough))
+	uriScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
 )
 
 // linkSources are the directories and root files whose Markdown the checker scans.

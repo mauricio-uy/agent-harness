@@ -2,9 +2,7 @@ package docs
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 )
@@ -12,15 +10,14 @@ import (
 var (
 	planStates         = []string{"draft", "awaiting-approval", "approved", "in-progress", "completed", "cancelled", "superseded"}
 	approvedPlanStates = []string{"approved", "in-progress", "completed"}
-	planID             = regexp.MustCompile(`^PLAN-[0-9]{6}$`)
-	planFile           = regexp.MustCompile(`^(PLAN-[0-9]{6})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$`)
+	planType           = DocType{"plan", "PLAN", "plans", "Plans", planStates, ""}
 )
 
 // Plans covers implementation plans. Unlike specifications, a plan records its
 // replacement with superseded_by and several states require current approval.
 var Plans = &Suite{
 	Name:      "plans",
-	Types:     []DocType{{"plan", "PLAN", "plans", "Plans", planStates, ""}},
+	Types:     []DocType{planType},
 	validate:  func(r record, _ DocType, _ *Suite) []string { return validatePlan(r.path, r.data) },
 	relations: planRelations,
 }
@@ -44,10 +41,10 @@ func validatePlan(path string, data map[string]any) []string {
 		}
 	}
 	identifier, _ := data["id"].(string)
-	if !planID.MatchString(identifier) {
+	if !planType.hasID(identifier) {
 		errors = append(errors, "id must match PLAN-000001")
 	}
-	if match := planFile.FindStringSubmatch(filepath.Base(path)); match == nil || match[1] != identifier {
+	if match := documentFile.FindStringSubmatch(filepath.Base(path)); match == nil || match[1] != identifier {
 		errors = append(errors, "filename must contain the matching ID and a lowercase hyphenated slug")
 	}
 	if !singleLine(data["title"]) {
@@ -107,32 +104,11 @@ func validatePlan(path string, data map[string]any) []string {
 	if status == "superseded" || (present && replacement != nil) {
 		target, ok := replacement.(string)
 		switch {
-		case !ok || !planID.MatchString(target):
+		case !ok || !planType.hasID(target):
 			errors = append(errors, "superseded_by must be a valid plan ID")
 		case target == identifier:
 			errors = append(errors, "superseded_by must not refer to the same plan")
 		}
 	}
 	return errors
-}
-
-func exists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-func isDir(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
-}
-
-// isFile reports a path that exists but is not a directory.
-func isFile(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-func notRegular(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.Mode().IsRegular()
 }

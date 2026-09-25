@@ -259,3 +259,24 @@ func writeText(path, content string) error {
 	}
 	return os.WriteFile(path, []byte(content), 0o644)
 }
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+// isFile reports a path that exists but is not a directory.
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func notRegular(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.Mode().IsRegular()
+}
