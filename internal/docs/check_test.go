@@ -2,6 +2,7 @@ package docs
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -88,5 +89,37 @@ func TestCheckRejectsNonStandardSkillFrontmatter(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
+	}
+}
+
+func TestStagedLinksToCodeAndFoldersUseTheIndex(t *testing.T) {
+	f := stagedFixture(t)
+	f.write("internal/app/main.go", "package main\n")
+	f.write("docs/guide.md", "[Code](../internal/app/main.go), [folder](../internal/app/) and [bare folder](../internal)\n")
+	f.git("add", ".")
+	expectStatus(t, f.checkStaged(), 0)
+
+	f.write("internal/app/new.go", "package main\n")
+	f.write("docs/guide.md", "[New](../internal/app/new.go)\n")
+	f.git("add", "docs/guide.md")
+	r := f.checkStaged()
+	expectStatus(t, r, 1)
+	r.contains(t, "internal/app/new.go", "missing target")
+}
+
+func TestStagedSnapshotHoldsOnlyMarkdown(t *testing.T) {
+	f := stagedFixture(t)
+	f.write("internal/app/main.go", "package main\n")
+	f.git("add", ".")
+	snapshot, known, err := stagedSnapshot(f.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(snapshot)
+	if exists(snapshot + "/internal/app/main.go") {
+		t.Error("code must not be copied")
+	}
+	if !exists(snapshot+"/docs/README.md") || !known.exists(snapshot+"/internal/app/main.go") || !known.isDir(snapshot+"/internal/app") {
+		t.Error("Markdown is copied and every staged path is known")
 	}
 }

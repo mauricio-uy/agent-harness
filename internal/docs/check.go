@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/mauricio-uy/agent-harness/internal/report"
 )
@@ -29,8 +30,10 @@ type CheckResult struct {
 
 // Inspect runs every read-only validation: index synchronization, skill
 // frontmatter, and local links. Every check runs even if an earlier one fails.
-func Inspect(root string) CheckResult {
-	result := CheckResult{Suites: map[string]SyncResult{}, Skills: InspectSkills(root), Links: InspectLinks(root)}
+func Inspect(root string) CheckResult { return inspect(root, diskTree{}) }
+
+func inspect(root string, files tree) CheckResult {
+	result := CheckResult{Suites: map[string]SyncResult{}, Skills: InspectSkills(root), Links: inspectLinks(root, files)}
 	result.OK = len(result.Skills.Errors) == 0 && len(result.Links.Errors) == 0
 	for _, s := range suites {
 		r := s.Inspect(root)
@@ -66,20 +69,55 @@ func Check(root string, links LinkReport, out report.Sink) int {
 	return Inspect(root).Report(links, out)
 }
 
-// InspectStaged runs Inspect against a disposable copy of the Git index, so
-// unstaged edits neither hide nor cause failures. The working tree and index
-// are not changed. GIT_INDEX_FILE is inherited, as Git can supply an alternate index.
+// InspectStaged runs Inspect against the Git index, so unstaged edits neither
+// hide nor cause failures. The working tree and index are not changed.
 func InspectStaged(root string) (CheckResult, error) {
-	snapshot, err := os.MkdirTemp("", "harness-index-")
+	snapshot, staged, err := stagedSnapshot(root)
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("cannot check staged documentation: %w", err)
 	}
 	defer os.RemoveAll(snapshot)
-	command := exec.Command("git", "-C", root, "checkout-index", "--all", "--prefix", filepath.ToSlash(snapshot)+"/")
-	if output, err := command.CombinedOutput(); err != nil {
-		return CheckResult{}, fmt.Errorf("cannot check staged documentation: %v\n%s", err, output)
+	return inspect(snapshot, staged), nil
+}
+
+// stagedSnapshot copies the staged Markdown, the only files whose content the
+// checks read, into a disposable directory, and lists every staged path so
+// that links to code and folders still resolve. GIT_INDEX_FILE is inherited,
+// as Git can supply an alternate index.
+func stagedSnapshot(root string) (string, stagedTree, error) {
+	listing, err := exec.Command("git", "-C", root, "ls-files", "-z", "--cached").Output()
+	if err != nil {
+		return "", stagedTree{}, gitError(err)
 	}
-	return Inspect(snapshot), nil
+	snapshot, err := os.MkdirTemp("", "harness-index-")
+	if err != nil {
+		return "", stagedTree{}, err
+	}
+	staged := stagedTree{root: snapshot, files: map[string]bool{}, dirs: map[string]bool{".": true}}
+	var markdown strings.Builder
+	for _, name := range strings.Split(string(listing), "\x00") {
+		if name == "" || staged.files[name] {
+			continue
+		}
+		staged.add(name)
+		if strings.HasSuffix(name, ".md") {
+			markdown.WriteString(name + "\x00")
+		}
+	}
+	command := exec.Command("git", "-C", root, "checkout-index", "-z", "--stdin", "--prefix", filepath.ToSlash(snapshot)+"/")
+	command.Stdin = strings.NewReader(markdown.String())
+	if output, err := command.CombinedOutput(); err != nil {
+		os.RemoveAll(snapshot)
+		return "", stagedTree{}, fmt.Errorf("%v\n%s", err, output)
+	}
+	return snapshot, staged, nil
+}
+
+func gitError(err error) error {
+	if exit, ok := err.(*exec.ExitError); ok && len(exit.Stderr) > 0 {
+		return fmt.Errorf("%v\n%s", err, exit.Stderr)
+	}
+	return err
 }
 
 // CheckStaged runs Check against the Git index; it returns the exit status.

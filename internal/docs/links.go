@@ -299,7 +299,11 @@ func linkSources(root string) []string {
 
 // CheckLinks scans every Markdown source and reports broken local links and
 // fragments, suggesting a new destination for documents that moved.
-func CheckLinks(root string) (int, []LinkError) {
+func CheckLinks(root string) (int, []LinkError) { return checkLinks(root, diskTree{}) }
+
+// checkLinks checks the links of the Markdown under root, asking files for
+// whether a target exists.
+func checkLinks(root string, files tree) (int, []LinkError) {
 	var errors []LinkError
 	cache := map[string]parsed{}
 	document := func(path string) (parsed, error) {
@@ -319,7 +323,7 @@ func CheckLinks(root string) (int, []LinkError) {
 		}
 	}
 	sources := linkSources(root)
-	if !isDir(filepath.Join(root, "docs")) {
+	if !files.isDir(filepath.Join(root, "docs")) {
 		errors = append(errors, LinkError{Source: "docs", Line: 1, Reason: "documentation directory is missing"})
 	}
 	for _, source := range sources {
@@ -356,7 +360,7 @@ func CheckLinks(root string) (int, []LinkError) {
 			}
 			resolved := relSlash(root, target)
 			switch {
-			case !exists(target):
+			case !files.exists(target):
 				suggestion := ""
 				if id := findDocumentID(local); id != "" && len(documents[id]) == 1 {
 					if rel, err := filepath.Rel(filepath.Dir(source), documents[id][0]); err == nil {
@@ -372,7 +376,7 @@ func CheckLinks(root string) (int, []LinkError) {
 				errors = append(errors, LinkError{name, l.line, l.destination, "missing target", resolved, suggestion})
 			case d.fragment != "":
 				anchorTarget := target
-				if isDir(target) {
+				if files.isDir(target) {
 					anchorTarget = filepath.Join(target, "README.md")
 				}
 				if isFile(anchorTarget) && strings.EqualFold(filepath.Ext(anchorTarget), ".md") {
@@ -435,8 +439,10 @@ type LinkResult struct {
 }
 
 // InspectLinks checks every local link under root.
-func InspectLinks(root string) LinkResult {
-	count, errors := CheckLinks(root)
+func InspectLinks(root string) LinkResult { return inspectLinks(root, diskTree{}) }
+
+func inspectLinks(root string, files tree) LinkResult {
+	count, errors := checkLinks(root, files)
 	if errors == nil {
 		errors = []LinkError{}
 	}
