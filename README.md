@@ -13,7 +13,7 @@ Skills follow the [Agent Skills specification](https://agentskills.io/specificat
 | [AGENTS.md](template/AGENTS.md) | Shared rules for every agent and subagent. |
 | [.agents/skills/](template/.agents/skills/) | The skills below, with their formats and templates. |
 | [.agents/shared/](template/.agents/shared/README.md) | Formats for the project overview and glossary. |
-| [docs/](template/docs/README.md) | Document indexes, the [overview](template/docs/overview.md), and the [glossary](template/docs/glossary.md). |
+| [docs/](template/docs/README.md) | One folder per document type, the [overview](template/docs/overview.md), and the [glossary](template/docs/glossary.md). |
 | [.githooks/pre-commit](template/.githooks/pre-commit) | Runs `harness check --staged` before each commit. |
 
 | Skill | Purpose |
@@ -60,8 +60,23 @@ Output is colored in a terminal and plain otherwise; `NO_COLOR` disables colors,
 
 ### What `check` verifies
 
-- **Plans:** frontmatter, unique IDs, filename identity, states, dates, approval consistency, and replacement IDs. `sync plans` moves each plan into the directory for its status and regenerates the active-state indexes.
-- **Specifications, research, and runbooks:** identity, lifecycle states, dates, revision and approval consistency, relations that resolve to exactly one document, and replacement chains without cycles. Each suite regenerates only its own indexes and never moves or edits documents. Runbooks also validate their owner and operational validation record, which is independent of document approval.
+Every document type shares one layout, shown here for [plans](template/docs/plans/README.md):
+
+```
+docs/plans/
+  README.md            what each state means, with a link to its index
+  draft.md             generated index, one per state
+  in-progress.md
+  ...
+  records/
+    PLAN-000001-slug.md
+```
+
+Documents live in `records/` and never move, so links to them, from inside or outside the repository, keep working. A status change moves only a row between indexes, and an agent or a person opens only the index of the state they need. `sync` regenerates the indexes and never moves or edits documents.
+
+- **Plans:** frontmatter, unique IDs, filename identity, states, dates, approval consistency, and replacement IDs.
+- **Specifications, research, and runbooks:** identity, lifecycle states, dates, revision and approval consistency, relations that resolve to exactly one document, and replacement chains without cycles. Each suite regenerates only its own indexes. Runbooks also validate their owner and operational validation record, which is independent of document approval.
+- **Layout:** documents sit in `records/`; anything else beside the indexes is reported.
 - **Skills:** frontmatter follows the Agent Skills specification.
 - **Links:** every local Markdown link and heading fragment under `docs/`, `.agents/`, and client directories resolves. A link to a moved document gets a suggested destination.
 
