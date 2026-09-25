@@ -1,7 +1,10 @@
-# Documentation tooling only
-/docs/scripts/**/__pycache__/
-/docs/scripts/**/*.py[cod]
-/docs/scripts/.venv/
+# Build output
+/dist/
+/harness
+/harness.exe
 
 # Generated validation reports
 /docs-link-report/
+
+# Local instructions for developing the harness itself; the installed AGENTS.md lives in template/
+/AGENTS.md

@@ -1,4 +1,3 @@
-# Conventions for documentation tooling only.
-/.githooks/pre-commit text eol=lf
-/docs/scripts/**/*.py text eol=lf diff=python
-/docs/scripts/requirements.txt text eol=lf
+# Go sources and scripts executed directly as POSIX shell scripts.
+*.go text eol=lf
+/template/.githooks/pre-commit text eol=lf
