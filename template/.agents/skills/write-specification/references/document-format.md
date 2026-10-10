@@ -4,24 +4,18 @@
 
 | Type | Question answered | ID prefix | Destination | Template |
 | --- | --- | --- | --- | --- |
-| `adr` | Which architectural option do we choose, and why? | `ADR` | `docs/decisions/records/` | [ADR](../assets/adr-template.md) |
-| `use-case` | How does an actor achieve a goal through the system? | `UC` | `docs/use-cases/records/` | [Use case](../assets/use-case-template.md) |
-| `functional-requirement` | What observable behavior must the system provide? | `FR` | `docs/requirements/functional/records/` | [Functional requirement](../assets/functional-requirement-template.md) |
-| `non-functional-requirement` | What measurable quality or constraint must the system satisfy? | `NFR` | `docs/requirements/non-functional/records/` | [Non-functional requirement](../assets/non-functional-requirement-template.md) |
+| `adr` | Which architectural option do we choose, and why? | `ADR` | `docs/decisions/` | [ADR](../assets/adr-template.md) |
+| `use-case` | How does an actor achieve a goal through the system? | `UC` | `docs/use-cases/` | [Use case](../assets/use-case-template.md) |
+| `functional-requirement` | What observable behavior must the system provide? | `FR` | `docs/requirements/functional/` | [Functional requirement](../assets/functional-requirement-template.md) |
+| `non-functional-requirement` | What measurable quality or constraint must the system satisfy? | `NFR` | `docs/requirements/non-functional/` | [Non-functional requirement](../assets/non-functional-requirement-template.md) |
 
 Use one document per decision, actor goal, or independently verifiable requirement. A use case may reference several requirements; an ADR may explain an implementation choice that satisfies them. Do not create all four types by default. Ask before resolving a genuine classification ambiguity.
 
-Create destination directories when the first document is needed. Name files `<ID>-<short-slug>.md`, with IDs such as `ADR-000001`. Get the next free ID with `harness id <type>`, such as `harness id adr`. It counts every record of the type, including rejected and superseded ones. Recheck before saving concurrent work. Keep IDs and filenames stable; changing status does not move these documents. Plan synchronization applies only to `docs/plans/`.
+`harness docs new TYPE --title "..."` creates the document at `<ID>-<short-slug>.md` in its destination, with the next free ID such as `ADR-000001`. The ID counts every record of the type, including rejected and superseded ones. IDs and filenames never change, and a status change does not move a document.
 
-## Directories and indexes
+## Discovery
 
-Each type directory holds a hand-written `README.md` that explains its states and links their indexes, one generated index per state named `<state>.md`, and the documents in `records/`. Keep `docs/README.md` as a navigation entry point linking to each type's `README.md`; do not list individual documents there or add skill instructions to indexes.
-
-Each type has an index for `awaiting-approval`, `draft`, the type's approval state, `rejected`, and `superseded`. Each index is a table with `ID`, `Document`, `Revision`, and `Updated`, sorted by ID; document titles link to their records using relative paths. An empty index keeps its header and a short empty-state message, without placeholder records.
-
-`harness sync specifications` generates these indexes from frontmatter. Every document appears exactly once, in the index of its status, including historical records. Change document metadata and regenerate; do not edit generated rows. Status changes move rows between indexes, never document files. When accepting a replacement, update both records before regenerating. Keep navigation outside generated indexes in `docs/README.md`.
-
-Read only the index of the relevant type and status, or search `records/` by ID; do not load every index or document. Include historical files when allocating IDs or tracing decisions. Do not run `harness sync plans` on specification directories.
+Find documents with `harness docs list` and its filters, and see what refers to one with `harness docs graph ID`. Historical documents remain queryable.
 
 ## Shared frontmatter
 
@@ -39,7 +33,7 @@ Read only the index of the relevant type and status, or search `records/` by ID;
 | `related` | List of unique existing document or plan IDs; use `[]` when none apply. |
 | `supersedes` | Optional list of existing IDs of the same type being replaced; defaults to `[]`. |
 
-Approval fields are both null or both populated. An approval revision must be positive and cannot exceed the current revision; its date must fall between creation and update. Take every date from `harness date`, never from memory. This records the human's decision, not independently verifiable identity or a conversation URL. Never fabricate a durable reference to the conversation.
+Change these fields only with `harness docs` commands. Approval fields are both null or both populated. An approval revision must be positive and cannot exceed the current revision; its date must fall between creation and update. The `harness docs` commands write every frontmatter date. Take any date you write in the body from `harness date`, never from memory. This records the human's decision, not independently verifiable identity or a conversation URL. Never fabricate a durable reference to the conversation.
 
 Do not repeat IDs across relation lists, refer to the document itself, or create replacement cycles. Relations do not imply approval or implementation. Use Markdown links in the body for useful navigation; IDs in frontmatter preserve identity if paths change. Confirm every relation resolves to one document.
 
@@ -49,20 +43,19 @@ Do not repeat IDs across relation lists, refer to the document itself, or create
 | --- | --- |
 | `draft` | Being written; assumptions and open questions remain visible. |
 | `awaiting-approval` | Complete enough for a decision, with blocking questions resolved. |
-| `accepted` | Human approved the current ADR revision; valid only for ADRs. |
-| `approved` | Human approved the current use case or requirement revision. |
+| `approved` | Human approved the current document revision. |
 | `rejected` | Human explicitly declined the proposal; record the reason. |
-| `superseded` | An accepted or approved replacement now governs; identify it in the record. |
+| `superseded` | An approved replacement now governs; identify it in the record. |
 
-Normal progression is `draft` -> `awaiting-approval` -> `accepted` for ADRs, or `approved` for other types. Both approval states require `approval.revision == revision`. Approval is per document and revision; a batch approval must identify its members unambiguously. Record review outcomes and their reasons in the review history.
+Normal progression is `draft` -> `awaiting-approval` -> `approved`. Approval requires `approval.revision == revision`. Approval is per document and revision; a batch approval must identify its members unambiguously. Record review outcomes and their reasons in the review history.
 
-For a material change to a use case, requirement, or unaccepted ADR, increment `revision`, return to `draft`, and retain any earlier approval as historical evidence. It does not approve the new revision. Editorial fixes and status updates do not increment the revision. Clear a revoked approval and return the document to review, recording why.
+For a material change to a use case, requirement, or unapproved ADR, run `harness docs revise ID`. It increments `revision`, returns to `draft`, and keeps any earlier approval as historical evidence that does not approve the new revision. Editorial fixes and status updates do not need a revision. When the human revokes an approval, run `harness docs revoke ID` and record why.
 
-Preserve the decision and rationale of an accepted ADR. Propose a new ADR for a changed decision and list the old ID in `supersedes`. Keep the old ADR accepted until the human accepts the replacement; then mark it superseded and record the successor ID in its review history. Apply the same replacement rule when replacing, rather than revising, other document types. Rejected or superseded records remain discoverable.
+Preserve the decision and rationale of an approved ADR. Propose a new ADR for a changed decision with `harness docs new adr --title "..." --supersedes OLD`. Keep the old ADR approved until the human approves the replacement. Then run `harness docs status OLD superseded` and record the successor ID in its review history. Apply the same replacement rule when replacing, rather than revising, other document types. Rejected or superseded records remain discoverable.
 
 ## Type-specific review criteria
 
-- **ADR:** State the architectural question, context, decision drivers, viable alternatives, proposed choice, rationale, and positive and negative consequences. Include migration or reversal implications when relevant. Distinguish a recommendation from an accepted decision.
+- **ADR:** State the architectural question, context, decision drivers, viable alternatives, proposed choice, rationale, and positive and negative consequences. Include migration or reversal implications when relevant. Distinguish a recommendation from an approved decision.
 - **Use case:** Identify the actor's goal, system boundary, trigger, preconditions, success outcome, and failure guarantees. Number the main flow; tie alternative and exception flows to the affected steps. Describe interactions without inventing UI or architectural choices.
 - **Functional requirement:** State one observable obligation with its trigger, conditions, inputs, outputs, business rules, and failure behavior. Provide acceptance scenarios covering applicable boundaries and errors. Link to relevant use cases without duplicating them.
 - **Non-functional requirement:** Identify the quality or constraint, scope, measure, threshold, units, operating conditions, and verification method. Define workload and measurement window or percentile when relevant. For a categorical constraint, use an explicit pass/fail criterion. Do not replace missing human targets with plausible numbers or words such as "fast" or "secure".

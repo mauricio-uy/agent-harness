@@ -40,11 +40,16 @@ func (f *fixture) write(rel, content string) string {
 
 func (f *fixture) read(rel string) string {
 	f.t.Helper()
-	raw, err := os.ReadFile(f.path(rel))
+	return string(rawBytes(f.t, f.path(rel)))
+}
+
+func rawBytes(t *testing.T, path string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		f.t.Fatal(err)
+		t.Fatal(err)
 	}
-	return string(raw)
+	return raw
 }
 
 func (f *fixture) exists(rel string) bool { return exists(f.path(rel)) }
@@ -107,11 +112,15 @@ func (r result) contains(t *testing.T, parts ...string) {
 	}
 }
 
-func (f *fixture) sync(name string, apply, check bool) result {
+func (f *fixture) inspect(name string) result {
 	var out bytes.Buffer
-	status, err := SyncSuite(name, f.root, apply, check, report.Text{W: &out})
-	if err != nil {
-		f.t.Fatal(err)
+	suite := suiteNamed(name)
+	if suite == nil {
+		f.t.Fatal("unknown suite: " + name)
+	}
+	status := 0
+	if !suite.Inspect(f.root).Report(report.Text{W: &out}) {
+		status = 1
 	}
 	return result{status, out.String()}
 }
@@ -143,12 +152,6 @@ func readLinkReport(t *testing.T, dir string) []LinkError {
 		t.Fatal(err)
 	}
 	return report.Errors
-}
-
-// index reads the generated index of one state of a document type.
-func (f *fixture) index(folder, state string) string {
-	f.t.Helper()
-	return f.read("docs/" + folder + "/" + state + ".md")
 }
 
 func number(n int) string { return fmt.Sprintf("%06d", n) }

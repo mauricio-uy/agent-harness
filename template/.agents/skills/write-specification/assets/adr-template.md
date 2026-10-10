@@ -27,7 +27,7 @@ State the architectural question, constraints, and criteria that distinguish the
 
 ## Decision
 
-Describe the proposed choice and why it satisfies the decision drivers. It remains a proposal until accepted.
+Describe the proposed choice and why it satisfies the decision drivers. It remains a proposal until approved.
 
 ## Consequences
 

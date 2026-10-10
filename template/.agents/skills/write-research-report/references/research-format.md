@@ -4,7 +4,7 @@ Use [the research template](../assets/research-template.md). This reference defi
 
 ## Identity and frontmatter
 
-Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/research/records/`. Get the next free ID with `harness id research`, which counts historical records too. Recheck before saving concurrent work. Status changes never move files.
+Records live at `docs/research/<ID>-<short-slug>.md` with IDs such as `RES-000001`. `harness docs new research` assigns the next free ID, counting historical records too. Status changes never move files. Change the frontmatter only with `harness docs` commands.
 
 | Field | Required value or meaning |
 | --- | --- |
@@ -18,13 +18,11 @@ Use `RES-000001` IDs and stable `<ID>-<short-slug>.md` filenames under `docs/res
 | `related` | Unique existing document or plan IDs; use `[]` when none apply. |
 | `supersedes` | Optional list of existing research IDs this record replaces; defaults to `[]`. |
 
-Take every date from `harness date`, never from memory. An approval revision is positive and cannot exceed the current revision; its date falls between creation and update. `approved` requires approval of the current revision. Metadata records a human decision, not independent proof or an invented conversation reference. Do not repeat IDs across relation lists, self-reference, or create replacement cycles. Other document types can supply evidence or context; their lifecycle and indexes are outside this skill's responsibility.
+The `harness docs` commands write every frontmatter date. Take any date you write in the body from `harness date`, never from memory. An approval revision is positive and cannot exceed the current revision; its date falls between creation and update. `approved` requires approval of the current revision. Metadata records a human decision, not independent proof or an invented conversation reference. Do not repeat IDs across relation lists, self-reference, or create replacement cycles. Other document types can supply evidence or context, and their lifecycle is outside this skill's responsibility.
 
-## Index
+## Discovery
 
-Keep one generated index per state in `docs/research/`: `awaiting-approval.md`, `draft.md`, `approved.md`, `rejected.md`, and `superseded.md`, linked from the hand-written `docs/research/README.md`. Each index contains `ID`, linked `Document` title, `Revision`, and `Updated`, sorted by ID. Each record appears once, in the index of its status. An empty index keeps its header and an empty-state message.
-
-Regenerate the research indexes after metadata changes; do not edit generated rows. Read only the relevant index or search `records/` by ID. Indexes list only research records and contain no skill instructions.
+Find records with `harness docs list --type research` and its filters. Historical records remain discoverable.
 
 ## Evidence and conclusions
 
@@ -40,6 +38,6 @@ Regenerate the research indexes after metadata changes; do not edit generated ro
 
 Keep an unfinished investigation in `draft`, with a stopping reason, completed work, and a concrete next step. An inconclusive report can enter `awaiting-approval` when it adequately answers the agreed scope by documenting the evidence gap; distinguish unanswered research questions from blockers to reviewing the report.
 
-New evidence that changes findings or recommendations is a material revision: increment `revision`, return to `draft`, and retain earlier approval as historical evidence. Editorial fixes and state changes do not increment revision. Clear a revoked approval and return to review, recording why. Record each review outcome and its reason; batch approval must identify the records and revisions explicitly.
+New evidence that changes findings or recommendations is a material revision. Run `harness docs revise ID`, which increments `revision`, returns to `draft` and keeps the earlier approval as historical evidence. Editorial fixes and state changes do not need a revision. When the human revokes an approval, run `harness docs revoke ID` and record why. Record each review outcome and its reason; batch approval must identify the records and revisions explicitly.
 
-For replacement, list the older research ID in the new record's `supersedes`. Keep the old state until the human approves the replacement; then mark the old record `superseded` and identify its successor in the review history. Preserve historical records. Record evidence expiry conditions or recheck triggers where relevant; document update dates do not imply all sources were reverified.
+For replacement, create the new record with `--supersedes OLD`. Keep the old state until the human approves the replacement. Then run `harness docs status OLD superseded` and identify the successor in the review history. Preserve historical records. Record evidence expiry conditions or recheck triggers where relevant; document update dates do not imply all sources were reverified.

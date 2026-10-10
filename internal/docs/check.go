@@ -10,35 +10,26 @@ import (
 	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
-// SyncSuite runs one named synchronization.
-func SyncSuite(name, root string, apply, check bool, out report.Sink) (int, error) {
-	s := suiteNamed(name)
-	if s == nil {
-		return 1, fmt.Errorf("unknown document suite %q; choose one of %v", name, Suites)
-	}
-	return s.Sync(root, apply, check, out), nil
-}
-
 // CheckResult is the outcome of every read-only validation. Its JSON form is
 // the contract of `harness check --format json`.
 type CheckResult struct {
-	OK     bool                  `json:"ok"`
-	Suites map[string]SyncResult `json:"suites"`
-	Skills SkillResult           `json:"skills"`
-	Links  LinkResult            `json:"links"`
+	OK     bool                        `json:"ok"`
+	Suites map[string]ValidationResult `json:"suites"`
+	Skills SkillResult                 `json:"skills"`
+	Links  LinkResult                  `json:"links"`
 }
 
-// Inspect runs every read-only validation: index synchronization, skill
+// Inspect runs every read-only validation: document metadata and relationships, skill
 // frontmatter, and local links. Every check runs even if an earlier one fails.
 func Inspect(root string) CheckResult { return inspect(root, diskTree{}) }
 
 func inspect(root string, files tree) CheckResult {
-	result := CheckResult{Suites: map[string]SyncResult{}, Skills: InspectSkills(root), Links: inspectLinks(root, files)}
+	result := CheckResult{Suites: map[string]ValidationResult{}, Skills: InspectSkills(root), Links: inspectLinks(root, files)}
 	result.OK = len(result.Skills.Errors) == 0 && len(result.Links.Errors) == 0
 	for _, s := range suites {
 		r := s.Inspect(root)
 		result.Suites[s.Name] = r
-		result.OK = result.OK && len(r.Errors) == 0 && len(r.StaleIndexes) == 0
+		result.OK = result.OK && len(r.Errors) == 0
 	}
 	return result
 }
@@ -48,7 +39,7 @@ func (r CheckResult) Report(links LinkReport, out report.Sink) int {
 	for _, name := range Suites {
 		report.Blank(out)
 		out.Emit(report.Section, name)
-		r.Suites[name].Report(out, false)
+		r.Suites[name].Report(out)
 	}
 	report.Blank(out)
 	out.Emit(report.Section, "skills")
@@ -80,9 +71,9 @@ func InspectStaged(root string) (CheckResult, error) {
 	return inspect(snapshot, staged), nil
 }
 
-// stagedSnapshot copies the staged Markdown, the only files whose content the
-// checks read, into a disposable directory, and lists every staged path so
-// that links to code and folders still resolve. GIT_INDEX_FILE is inherited,
+// stagedSnapshot copies the staged Markdown and ignore file, the only files
+// whose content the checks read, into a disposable directory, and lists every
+// staged path so that links to code and folders still resolve. GIT_INDEX_FILE is inherited,
 // as Git can supply an alternate index.
 func stagedSnapshot(root string) (string, stagedTree, error) {
 	listing, err := exec.Command("git", "-C", root, "ls-files", "-z", "--cached").Output()
@@ -100,7 +91,7 @@ func stagedSnapshot(root string) (string, stagedTree, error) {
 			continue
 		}
 		staged.add(name)
-		if strings.HasSuffix(name, ".md") {
+		if strings.HasSuffix(name, ".md") || name == ignoreFile {
 			markdown.WriteString(name + "\x00")
 		}
 	}

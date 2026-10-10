@@ -1,0 +1,3 @@
+# Client files link to the paths they take in an installed project, so they
+# resolve only there. The install tests check them after installation.
+/template-clients/

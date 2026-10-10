@@ -19,7 +19,7 @@ func (f *fixture) git(args ...string) string {
 	return string(output)
 }
 
-// stagedFixture is a repository with valid, generated indexes, all staged.
+// stagedFixture is a repository with valid Markdown, all staged.
 func stagedFixture(t *testing.T) *fixture {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
@@ -29,9 +29,6 @@ func stagedFixture(t *testing.T) *fixture {
 	f.git("config", "core.autocrlf", "false")
 	f.write(".agents/skills/example/SKILL.md", "---\nname: example\ndescription: An example skill for tests.\n---\n\n# Example\n")
 	f.write("docs/plans/README.md", "# Documents\n")
-	for _, name := range Suites {
-		expectStatus(t, f.sync(name, true, false), 0)
-	}
 	f.write("README.md", "# Fixture\n")
 	f.write("docs/README.md", "# Documents\n")
 	f.git("add", ".")
@@ -68,14 +65,14 @@ func TestStagedUnstagedErrorDoesNotBlockValidIndex(t *testing.T) {
 	expectStatus(t, f.checkStaged(), 0)
 }
 
-func TestStagedStaleIndexAndLinksAreBothReported(t *testing.T) {
+func TestStagedInvalidMetadataAndBrokenLinksAreBothReported(t *testing.T) {
 	f := stagedFixture(t)
-	f.write("docs/research/draft.md", "stale\n")
+	f.write("docs/research/RES-000001-invalid.md", "missing frontmatter\n")
 	f.write("README.md", "[Missing](missing.md)\n")
 	f.git("add", ".")
 	r := f.checkStaged()
 	expectStatus(t, r, 1)
-	r.contains(t, "== research ==", "INDEX docs/research/draft.md", "missing.md")
+	r.contains(t, "== research ==", "docs/research/RES-000001-invalid.md", "missing YAML frontmatter", "missing.md")
 }
 
 func TestCheckRejectsNonStandardSkillFrontmatter(t *testing.T) {

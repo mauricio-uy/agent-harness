@@ -29,12 +29,20 @@ func checkReferences(root string, files tree) (int, []LinkError) {
 		return 0, []LinkError{{Source: ".", Line: 1, Reason: "cannot search files for document references: " + err.Error()}}
 	}
 	documents := documentPaths(root)
+	ignore, _ := loadIgnore(root)
 	count := 0
 	var found []LinkError
 	for _, l := range lines {
-		var paths [][2]int
+		if ignore.ignores(l.file) {
+			continue
+		}
+		external := externalReferenceSpans(l.text)
+		paths := append([][2]int{}, external...)
 		for _, m := range referencePath.FindAllStringSubmatchIndex(l.text, -1) {
 			start := m[2]
+			if inside(external, start) {
+				continue
+			}
 			ref := strings.TrimRight(l.text[start:m[3]], ".")
 			paths = append(paths, [2]int{start, start + len(ref)})
 			// Documents are Markdown. Other paths into docs/, such as the
@@ -102,11 +110,8 @@ func inside(spans [][2]int, offset int) bool {
 	return false
 }
 
-// searched excludes Markdown, which the link checker reads, the installation
-// record, which lists installed files rather than references, and files the
-// project marks with the harness-ignore attribute in .gitattributes, such as
-// tests with example IDs. Git applies attributes only inside a repository.
-var searched = []string{":(exclude)*.md", ":(exclude).agents/harness.json", ":(exclude,attr:harness-ignore)"}
+// searched excludes Markdown, which the link checker reads.
+var searched = []string{":(exclude)*.md"}
 
 // stagedSplit is the number of files changed since staging above which the
 // staged content is searched as a whole instead of file by file.

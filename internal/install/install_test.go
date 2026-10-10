@@ -2,12 +2,14 @@ package install
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	harness "github.com/mauricio-uy/agent-harness"
 	"github.com/mauricio-uy/agent-harness/internal/docs"
@@ -36,6 +38,29 @@ func read(t *testing.T, root, rel string) string {
 	return string(raw)
 }
 
+func write(t *testing.T, root, rel, content string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func expectRecordedClients(t *testing.T, root string, clients ...string) {
+	t.Helper()
+	var recorded map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(read(t, root, stateFile)), &recorded); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	if len(recorded) != 1 || json.Unmarshal(recorded["clients"], &got) != nil || got == nil || strings.Join(got, ",") != strings.Join(clients, ",") {
+		t.Fatalf("installation record must contain only clients %v: %s", clients, read(t, root, stateFile))
+	}
+}
+
 func present(root, rel string) bool {
 	_, err := os.Lstat(filepath.Join(root, filepath.FromSlash(rel)))
 	return err == nil
@@ -52,7 +77,7 @@ func check(t *testing.T, root string) {
 func TestBaseInstallMatchesTemplateAndPassesChecks(t *testing.T) {
 	root := t.TempDir()
 	install(t, root)
-	for _, rel := range []string{"AGENTS.md", "docs/overview.md", "docs/glossary.md", "docs/plans/draft.md", "docs/plans/README.md",
+	for _, rel := range []string{"AGENTS.md", "docs/overview.md", "docs/glossary.md", "docs/README.md",
 		".agents/shared/README.md", ".githooks/pre-commit", ".agents/harness.json"} {
 		if !present(root, rel) {
 			t.Errorf("missing %s", rel)
@@ -63,6 +88,7 @@ func TestBaseInstallMatchesTemplateAndPassesChecks(t *testing.T) {
 			t.Errorf("base install must not add %s", rel)
 		}
 	}
+	expectRecordedClients(t, root)
 	check(t, root)
 }
 
@@ -97,9 +123,63 @@ func TestFullInstallWithEveryClientPassesChecks(t *testing.T) {
 	if present(root, "CLAUDE.md") {
 		t.Error("CLAUDE.md must not be created")
 	}
-	if got := read(t, root, ".agents/harness.json"); !strings.Contains(got, `"claude-code"`) || !strings.Contains(got, `"pi"`) {
-		t.Errorf("state %s", got)
+	expectRecordedClients(t, root, "claude-code", "codex", "opencode", "pi")
+	check(t, root)
+}
+
+func TestInitDoesNotWriteThroughLinkedDirectories(t *testing.T) {
+	for _, rel := range []string{"docs", ".agents", ".githooks", ".claude/skills"} {
+		t.Run(rel, func(t *testing.T) {
+			root, outside := t.TempDir(), t.TempDir()
+			write(t, outside, "keep.txt", "existing project file\n")
+			link := filepath.Join(root, filepath.FromSlash(rel))
+			if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, link); err != nil {
+				t.Skip(err)
+			}
+			var out bytes.Buffer
+			in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
+			if err := in.Init([]string{"claude-code", "codex", "opencode", "pi"}); err == nil || !strings.Contains(err.Error(), "regular paths") {
+				t.Fatalf("linked directory must be rejected: %v\n%s", err, out.String())
+			}
+			entries, err := os.ReadDir(outside)
+			if err != nil || len(entries) != 1 || entries[0].Name() != "keep.txt" || read(t, outside, "keep.txt") != "existing project file\n" {
+				t.Fatalf("installation wrote through %s: %v %v", rel, entries, err)
+			}
+		})
 	}
+}
+
+func TestInitKeepsPreviouslyInstalledFilesWhenPayloadChanges(t *testing.T) {
+	root := t.TempDir()
+	fake := fstest.MapFS{"template/AGENTS.md": &fstest.MapFile{Data: []byte("# Initial rules\n")}}
+	var out bytes.Buffer
+	in := &Installer{Root: root, Payload: fake, Out: report.Text{W: &out}}
+	if err := in.Init(nil); err != nil {
+		t.Fatal(err)
+	}
+	fake["template/AGENTS.md"].Data = []byte("# Different rules\n")
+	fake["template/docs/overview.md"] = &fstest.MapFile{Data: []byte("# Overview\n")}
+	out.Reset()
+	if err := in.Init(nil); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, root, "AGENTS.md") != "# Initial rules\n" || read(t, root, "docs/overview.md") != "# Overview\n" {
+		t.Fatal("init must preserve installed files and create missing ones")
+	}
+	if !strings.Contains(out.String(), "SKIP   AGENTS.md (exists)") {
+		t.Fatal(out.String())
+	}
+	expectRecordedClients(t, root)
+}
+
+func TestInitRetainsClientsWhenAddingMore(t *testing.T) {
+	root := t.TempDir()
+	install(t, root, "pi", "codex")
+	install(t, root, "claude-code", "opencode", "codex")
+	expectRecordedClients(t, root, "claude-code", "codex", "opencode", "pi")
 	check(t, root)
 }
 
