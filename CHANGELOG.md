@@ -34,6 +34,11 @@ This release replaces the generated status indexes with document commands. Agent
 - Agents update the overview when finished work changes the project's purpose or structure, with or without a plan.
 - Agents propose new terms while drafting a document of any type, and add them to the glossary once the human approves it.
 
+### Experiments
+
+- `AGENTS.md` sets one rule for experiments. Agents investigate freely without persistent changes, and ask the human before an experiment that changes the project, its dependencies or external systems. The approval covers only that experiment, and its changes are reverted unless the human keeps them.
+- `write-research-report` no longer requires an approved plan for an experiment, and `write-plan` no longer has its own rule.
+
 ### Checks
 
 - `harness check` checks the links of every Markdown file in the project, not only those of the harness, `README.md` and `AGENTS.md`. Files that Git ignores are skipped.

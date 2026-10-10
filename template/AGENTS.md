@@ -11,6 +11,7 @@ These rules apply to all agents and subagents using this harness.
 ## Authorization boundaries
 
 - Consult the human before materially expanding the authorized scope, including public behavior, architecture, dependencies, data, or operations. Pause affected work until authorized; handle internal details within approved boundaries autonomously.
+- Investigate freely without persistent changes: read, run existing tests and diagnostics, and use temporary files outside the project. Before an experiment that changes the project, its dependencies or external systems, ask the human, saying what it changes and how it will be undone. That approval covers only that experiment, and its changes are reverted afterwards unless the human decides to keep them.
 - Document approval alone does not authorize committing, merging, publishing, deployment, or operational execution.
 
 ## Project memory
