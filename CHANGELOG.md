@@ -45,6 +45,11 @@ This release replaces the generated status indexes with document commands. Agent
 - `harness docs status` refuses to leave `superseded`, `cancelled`, `completed` or `retired`. Before, a superseded ADR could become approved again next to its replacement, and a completed plan could return to `in-progress`.
 - `harness docs revise` refuses an approved ADR. A changed decision needs a new ADR created with `--supersedes`.
 
+### Templates
+
+- Every document template starts with `supersedes: []`, so `harness docs` returns the same fields for every type.
+- Every template ends with a `Review history` section that starts with `Revision 1: Initial draft; not yet approved.` Plans used `Revision history`, and specifications said a new draft was awaiting review.
+
 ### Checks
 
 - `harness check` checks the links of every Markdown file in the project, not only those of the harness, `README.md` and `AGENTS.md`. Files that Git ignores are skipped.

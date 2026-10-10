@@ -43,7 +43,7 @@ To replace a plan, add the old ID to the new plan with `harness docs relate NEW 
 
 Before changing content that requires approval, run `harness docs revise ID`. It increments `revision`, returns the plan to `draft` and keeps the earlier approval record, which does not authorize the new revision. When the human revokes an approval, run `harness docs revoke ID` to clear it and return the plan for review. Checkbox updates, dates, and editorial fixes do not change the revision.
 
-Keep approval-related changes and their reasons in a short revision history. Terminal plans are historical records; use a new plan for follow-up work.
+Keep approval-related changes and their reasons in a short review history. Terminal plans are historical records; use a new plan for follow-up work.
 
 ## Execution tracking
 

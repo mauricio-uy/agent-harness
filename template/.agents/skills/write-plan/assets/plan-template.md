@@ -10,6 +10,7 @@ approval:
   revision: null
   date: null
 related: []
+supersedes: []
 ---
 
 # Replace with the plan title
@@ -59,9 +60,9 @@ No execution yet.
 problems, alternative approaches, human decisions, and pause/resume reasons.
 For an unresolved issue, include its impact and the action or decision needed to resume. -->
 
-## Revision history
+## Review history
 
-- Revision 1: Initial draft.
+- Revision 1: Initial draft; not yet approved.
 
 ## Completion evidence
 

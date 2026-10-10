@@ -43,4 +43,4 @@ List unresolved questions, their impact, and whose input is needed, or state tha
 
 ## Review history
 
-- Revision 1: Initial draft; awaiting human review.
+- Revision 1: Initial draft; not yet approved.
