@@ -21,12 +21,14 @@ Find documents:
 
 Change frontmatter (each sets updated to today):
   new TYPE --title TEXT          create from the template with the next free ID
-  status ID STATE                change state; approved states need approval
+  status ID STATE                change state; approved states need approval, and an
+                                 approved document returns to review only by revise or revoke
   approve ID                     record the human's approval of the current revision and
                                  set status approved; only from draft or awaiting-approval
   revise ID                      start a new revision for a material change: back to draft,
                                  earlier approval kept as history, runbook validation stale;
-                                 refused for superseded, cancelled, completed or retired
+                                 refused for superseded, cancelled, completed or retired,
+                                 and for an approved ADR, which a new ADR supersedes
   revoke ID                      clear an approval the human withdrew
   touch ID                       record a body change, such as plan progress
   set ID title|owner VALUE       change the title, or a runbook owner

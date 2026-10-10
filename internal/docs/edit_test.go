@@ -119,6 +119,10 @@ func TestLifecycleCommandsFollowTheApprovalRules(t *testing.T) {
 	must(e.SetStatus("PLAN-000001", "in-progress"))
 	_, err = e.Approve("PLAN-000001")
 	expectCode(t, err, "invalid_state")
+	for _, state := range []string{"draft", "awaiting-approval"} {
+		_, err = e.SetStatus("PLAN-000001", state)
+		expectCode(t, err, "invalid_state")
+	}
 	plan = must(e.Revise("PLAN-000001"))
 	if plan["status"] != "draft" || plan["revision"] != int64(2) || plan["approval"].(map[string]any)["revision"] != int64(1) {
 		t.Fatalf("revising keeps the earlier approval as history: %v", plan)
@@ -140,8 +144,12 @@ func TestSupersedingRequiresAnApprovedReplacement(t *testing.T) {
 	must := mustEdit(t)
 	must(e.Create(NewDocument{Type: "adr", Title: "Old"}))
 	must(e.Approve("ADR-000001"))
+	_, err := e.Revise("ADR-000001")
+	expectCode(t, err, "invalid_state")
+	_, err = e.SetStatus("ADR-000001", "draft")
+	expectCode(t, err, "invalid_state")
 	must(e.Create(NewDocument{Type: "adr", Title: "New", Supersedes: []string{"ADR-000001"}}))
-	_, err := e.SetStatus("ADR-000001", "superseded")
+	_, err = e.SetStatus("ADR-000001", "superseded")
 	expectCode(t, err, "approval_required")
 	must(e.Approve("ADR-000002"))
 	must(e.SetStatus("ADR-000001", "superseded"))

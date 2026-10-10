@@ -51,7 +51,7 @@ Normal progression is `draft` -> `awaiting-approval` -> `approved`. Approval req
 
 For a material change to a use case, requirement, or unapproved ADR, run `harness docs revise ID`. It increments `revision`, returns to `draft`, and keeps any earlier approval as historical evidence that does not approve the new revision. Editorial fixes and status updates do not need a revision. When the human revokes an approval, run `harness docs revoke ID` and record why.
 
-Preserve the decision and rationale of an approved ADR. Propose a new ADR for a changed decision with `harness docs new adr --title "..." --supersedes OLD`. Keep the old ADR approved until the human approves the replacement. Then run `harness docs status OLD superseded` and record the successor ID in its review history. Apply the same replacement rule when replacing, rather than revising, other document types. Rejected or superseded records remain discoverable.
+Preserve the decision and rationale of an approved ADR, which `harness docs revise` refuses. Propose a new ADR for a changed decision with `harness docs new adr --title "..." --supersedes OLD`. Keep the old ADR approved until the human approves the replacement. Then run `harness docs status OLD superseded` and record the successor ID in its review history. Apply the same replacement rule when replacing, rather than revising, other document types. Rejected or superseded records remain discoverable.
 
 ## Type-specific review criteria
 

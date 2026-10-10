@@ -39,6 +39,11 @@ This release replaces the generated status indexes with document commands. Agent
 - `AGENTS.md` sets one rule for experiments. Agents investigate freely without persistent changes, and ask the human before an experiment that changes the project, its dependencies or external systems. The approval covers only that experiment, and its changes are reverted unless the human keeps them.
 - `write-research-report` no longer requires an approved plan for an experiment, and `write-plan` no longer has its own rule.
 
+### Approval rules
+
+- `harness docs status` refuses to return an approved or in-progress document to `draft` or `awaiting-approval`. Run `revise` for a material change, or `revoke` when the human withdraws the approval. Before, a document could leave and re-enter an approved state with changed content and no new approval.
+- `harness docs revise` refuses an approved ADR. A changed decision needs a new ADR created with `--supersedes`.
+
 ### Checks
 
 - `harness check` checks the links of every Markdown file in the project, not only those of the harness, `README.md` and `AGENTS.md`. Files that Git ignores are skipped.

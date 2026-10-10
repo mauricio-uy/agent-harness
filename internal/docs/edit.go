@@ -148,6 +148,13 @@ func (e Editor) SetStatus(id, state string) (map[string]any, error) {
 		if !slices.Contains(t.States, state) {
 			return queryError("invalid_arguments", fmt.Sprintf("%s states are: %s", t.Kind, strings.Join(t.States, ", ")))
 		}
+		current, _ := data["status"].(string)
+		if slices.Contains(t.Approved, current) && (state == "draft" || state == "awaiting-approval") {
+			if slices.Contains(historicalStates, current) {
+				return queryError("invalid_state", id+" is "+current+"; create a new document instead")
+			}
+			return queryError("invalid_state", id+" is "+current+"; run harness docs revise "+id+" for a material change, or harness docs revoke "+id+" when the human withdraws the approval")
+		}
 		if slices.Contains(t.Approved, state) && approvalStatus(data) != "current" {
 			return queryError("approval_required", state+" requires approval of the current revision; after the human approves it, run harness docs approve "+id)
 		}
@@ -182,12 +189,16 @@ func (e Editor) Approve(id string) (map[string]any, error) {
 
 // Revise starts a new revision for material changes. The earlier approval is
 // kept as history and no longer covers the document, and runbook validation
-// evidence becomes stale.
+// evidence becomes stale. An approved ADR keeps its decision, so a change
+// needs a replacement ADR.
 func (e Editor) Revise(id string) (map[string]any, error) {
-	return e.update(id, func(d *editable, data map[string]any, _ DocType) error {
+	return e.update(id, func(d *editable, data map[string]any, t DocType) error {
 		status, _ := data["status"].(string)
 		if slices.Contains(historicalStates, status) {
 			return queryError("invalid_state", id+" is "+status+"; create a new document instead")
+		}
+		if t.Kind == "adr" && status == "approved" {
+			return queryError("invalid_state", id+" is approved; propose a replacement with harness docs new adr --title TEXT --supersedes "+id)
 		}
 		revision, ok := PositiveInt(data["revision"])
 		if !ok {
