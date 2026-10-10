@@ -21,8 +21,9 @@ Find documents:
 
 Change frontmatter (each sets updated to today):
   new TYPE --title TEXT          create from the template with the next free ID
-  status ID STATE                change state; approved states need approval, and an
-                                 approved document returns to review only by revise or revoke
+  status ID STATE                change state; approved states need approval, an approved
+                                 document returns to review only by revise or revoke, and
+                                 superseded, cancelled, completed or retired are final
   approve ID                     record the human's approval of the current revision and
                                  set status approved; only from draft or awaiting-approval
   revise ID                      start a new revision for a material change: back to draft,

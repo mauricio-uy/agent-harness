@@ -56,7 +56,7 @@ They change frontmatter through commands instead of editing the YAML by hand:
 | Command | What it does |
 | --- | --- |
 | `harness docs new TYPE --title TEXT` | Creates a document from its skill's template, with the next free ID and today's date. |
-| `harness docs status ID STATE` | Changes the state. A state that needs approval requires the current revision to be approved, and `superseded` requires an approved replacement. An approved document returns to `draft` or `awaiting-approval` only through `revise` or `revoke`. |
+| `harness docs status ID STATE` | Changes the state. A state that needs approval requires the current revision to be approved, and `superseded` requires an approved replacement. An approved document returns to `draft` or `awaiting-approval` only through `revise` or `revoke`. `superseded`, `cancelled`, `completed` and `retired` are final. |
 | `harness docs approve ID` | Records your approval of the current revision and sets the document `approved`. |
 | `harness docs revise ID` | Starts a new revision for a material change. The earlier approval stays as history and no longer covers the document. An approved ADR cannot be revised. A new ADR supersedes it instead. |
 | `harness docs revoke ID` | Clears an approval you withdrew and returns the document for review. |

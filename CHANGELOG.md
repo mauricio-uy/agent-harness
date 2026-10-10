@@ -42,6 +42,7 @@ This release replaces the generated status indexes with document commands. Agent
 ### Approval rules
 
 - `harness docs status` refuses to return an approved or in-progress document to `draft` or `awaiting-approval`. Run `revise` for a material change, or `revoke` when the human withdraws the approval. Before, a document could leave and re-enter an approved state with changed content and no new approval.
+- `harness docs status` refuses to leave `superseded`, `cancelled`, `completed` or `retired`. Before, a superseded ADR could become approved again next to its replacement, and a completed plan could return to `in-progress`.
 - `harness docs revise` refuses an approved ADR. A changed decision needs a new ADR created with `--supersedes`.
 
 ### Checks

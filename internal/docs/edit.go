@@ -149,10 +149,10 @@ func (e Editor) SetStatus(id, state string) (map[string]any, error) {
 			return queryError("invalid_arguments", fmt.Sprintf("%s states are: %s", t.Kind, strings.Join(t.States, ", ")))
 		}
 		current, _ := data["status"].(string)
+		if slices.Contains(historicalStates, current) && state != current {
+			return queryError("invalid_state", id+" is "+current+"; create a new document instead")
+		}
 		if slices.Contains(t.Approved, current) && (state == "draft" || state == "awaiting-approval") {
-			if slices.Contains(historicalStates, current) {
-				return queryError("invalid_state", id+" is "+current+"; create a new document instead")
-			}
 			return queryError("invalid_state", id+" is "+current+"; run harness docs revise "+id+" for a material change, or harness docs revoke "+id+" when the human withdraws the approval")
 		}
 		if slices.Contains(t.Approved, state) && approvalStatus(data) != "current" {

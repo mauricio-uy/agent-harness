@@ -135,6 +135,10 @@ func TestLifecycleCommandsFollowTheApprovalRules(t *testing.T) {
 	if plan["status"] != "awaiting-approval" || plan["approval"].(map[string]any)["revision"] != nil {
 		t.Fatalf("%v", plan)
 	}
+	must(e.Approve("PLAN-000001"))
+	must(e.SetStatus("PLAN-000001", "completed"))
+	_, err = e.SetStatus("PLAN-000001", "in-progress")
+	expectCode(t, err, "invalid_state")
 	expectStatus(t, f.inspect("plans"), 0)
 }
 
@@ -155,6 +159,10 @@ func TestSupersedingRequiresAnApprovedReplacement(t *testing.T) {
 	must(e.SetStatus("ADR-000001", "superseded"))
 	_, err = e.Revise("ADR-000001")
 	expectCode(t, err, "invalid_state")
+	for _, state := range []string{"approved", "draft"} {
+		_, err = e.SetStatus("ADR-000001", state)
+		expectCode(t, err, "invalid_state")
+	}
 	g, err := RelationGraph(f.root, "ADR-000001")
 	if err != nil || len(g.SupersededBy) != 1 || g.SupersededBy[0].ID != "ADR-000002" || g.Status != "superseded" {
 		t.Fatalf("%+v %v", g, err)
