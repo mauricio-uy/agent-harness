@@ -27,6 +27,13 @@ This release replaces the generated status indexes with document commands. Agent
 - A state that needs approval requires the current revision to be approved, and `superseded` requires an approved replacement. A change that would make a document invalid is refused and nothing is written.
 - The skills and `AGENTS.md` tell agents to use these commands and to run `approve` only after the human approves.
 
+### Project memory
+
+- `AGENTS.md` now says when to read and update `docs/overview.md` and `docs/glossary.md`, so the rules also apply to research and to work done without a plan. The skills no longer repeat them.
+- Agents read both files before planning, implementing or writing a document.
+- Agents update the overview when finished work changes the project's purpose or structure, with or without a plan.
+- Agents propose new terms while drafting a document of any type, and add them to the glossary once the human approves it.
+
 ### Checks
 
 - `harness check` checks the links of every Markdown file in the project, not only those of the harness, `README.md` and `AGENTS.md`. Files that Git ignores are skipped.

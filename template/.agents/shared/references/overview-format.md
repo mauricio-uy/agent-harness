@@ -24,6 +24,6 @@ Update only the section affected by the change. Reflect the resulting state of t
 
 ## Location and creation
 
-The overview always lives at `docs/overview.md`. The path is fixed because skills and `AGENTS.md` read it by that path; do not move or rename it.
+The overview always lives at `docs/overview.md`. The path is fixed because `AGENTS.md` names it by that path; do not move or rename it.
 
 It is created from [the template](../assets/overview-template.md) when the harness is set up in a project. Fill in what is currently known and remove the template comments; leave the rest for later updates.

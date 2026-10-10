@@ -15,8 +15,10 @@ These rules apply to all agents and subagents using this harness.
 
 ## Project memory
 
-- `docs/overview.md` orients an agent in the project and `docs/glossary.md` fixes its vocabulary. Both are required parts of the project documentation.
-- Read or update them where a skill's own steps say so, or when the human explicitly asks. Follow the formats in [.agents/shared/](.agents/shared/README.md) to write them.
+- `docs/overview.md` orients an agent in the project and `docs/glossary.md` fixes its vocabulary. Read both before planning, implementing or writing a document, and use the glossary's terms.
+- When finished work changes the project's purpose or structure, update `docs/overview.md` before reporting the work as done, with or without a plan.
+- While drafting a document, raise new or conflicting project terms for the human's review. Add them to `docs/glossary.md` once the human approves the document.
+- Write both files following the formats in [.agents/shared/](.agents/shared/README.md).
 
 ## Delegation
 
