@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 
 	"github.com/mauricio-uy/agent-harness/internal/report"
@@ -73,20 +72,6 @@ func TestStagedInvalidMetadataAndBrokenLinksAreBothReported(t *testing.T) {
 	r := f.checkStaged()
 	expectStatus(t, r, 1)
 	r.contains(t, "== research ==", "docs/research/RES-000001-invalid.md", "missing YAML frontmatter", "missing.md")
-}
-
-func TestCheckRejectsNonStandardSkillFrontmatter(t *testing.T) {
-	f := newFixture(t)
-	f.write(".agents/skills/Bad_Name/SKILL.md", "---\nname: other\ndisable-model-invocation: true\n---\n")
-	var out bytes.Buffer
-	if CheckSkills(f.root, report.Text{W: &out}) != 1 {
-		t.Fatal("invalid skill must fail")
-	}
-	for _, want := range []string{"disable-model-invocation", "name must", "description must"} {
-		if !strings.Contains(out.String(), want) {
-			t.Errorf("output lacks %q:\n%s", want, out.String())
-		}
-	}
 }
 
 func TestStagedLinksToCodeAndFoldersUseTheIndex(t *testing.T) {

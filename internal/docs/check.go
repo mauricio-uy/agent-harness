@@ -15,17 +15,16 @@ import (
 type CheckResult struct {
 	OK     bool                        `json:"ok"`
 	Suites map[string]ValidationResult `json:"suites"`
-	Skills SkillResult                 `json:"skills"`
 	Links  LinkResult                  `json:"links"`
 }
 
-// Inspect runs every read-only validation: document metadata and relationships, skill
-// frontmatter, and local links. Every check runs even if an earlier one fails.
+// Inspect runs every read-only validation: document metadata and relationships,
+// and local links. Every check runs even if an earlier one fails.
 func Inspect(root string) CheckResult { return inspect(root, diskTree{}) }
 
 func inspect(root string, files tree) CheckResult {
-	result := CheckResult{Suites: map[string]ValidationResult{}, Skills: InspectSkills(root), Links: inspectLinks(root, files)}
-	result.OK = len(result.Skills.Errors) == 0 && len(result.Links.Errors) == 0
+	result := CheckResult{Suites: map[string]ValidationResult{}, Links: inspectLinks(root, files)}
+	result.OK = len(result.Links.Errors) == 0
 	for _, s := range suites {
 		r := s.Inspect(root)
 		result.Suites[s.Name] = r
@@ -41,9 +40,6 @@ func (r CheckResult) Report(links LinkReport, out report.Sink) int {
 		out.Emit(report.Section, name)
 		r.Suites[name].Report(out)
 	}
-	report.Blank(out)
-	out.Emit(report.Section, "skills")
-	r.Skills.Report(out)
 	report.Blank(out)
 	out.Emit(report.Section, "links")
 	status := reportLinks(r.Links, links, out)

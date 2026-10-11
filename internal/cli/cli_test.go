@@ -113,7 +113,7 @@ func TestCheckJSONReportsEveryCheck(t *testing.T) {
 	if status != 0 || result["ok"] != true {
 		t.Fatalf("a clean install must pass: %d %v", status, result)
 	}
-	for _, key := range []string{"suites", "skills", "links"} {
+	for _, key := range []string{"suites", "links"} {
 		if result[key] == nil {
 			t.Errorf("missing %s: %v", key, result)
 		}
@@ -170,8 +170,9 @@ func TestCheckFindsTheProjectFromASubdirectory(t *testing.T) {
 			if status != 1 || len(links) != 1 || links[0].(map[string]any)["source"] != "docs/broken.md" {
 				t.Fatalf("check must find the broken link in the project: %d %v", status, result)
 			}
+			project := result["links"].(map[string]any)["scanned"].(float64)
 			status, result = runJSON(t, append(args, "--root", ".")...)
-			if status != 1 || result["skills"].(map[string]any)["count"] != float64(0) {
+			if status != 1 || result["links"].(map[string]any)["scanned"].(float64) >= project {
 				t.Fatalf("an explicit root must be used as given: %d %v", status, result)
 			}
 		})

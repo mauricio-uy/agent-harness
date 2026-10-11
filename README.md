@@ -136,7 +136,6 @@ What `harness check` looks at:
 - A document that needs approval in its current state is approved for its current revision.
 - References to other documents point to exactly one document, and replacements don't go in circles.
 - Every document lives directly in its type directory.
-- The skills follow the Agent Skills specification.
 - Every local link and heading anchor works in every Markdown file of the project, such as `README.md`, `CONTRIBUTING.md` or a README inside `src/`. Links to websites are not checked. If a link points to a document that was moved, it suggests where it went.
 - Code and every other tracked file that isn't Markdown only mention documents that exist. That covers a document ID such as `ADR-000003`, which has to match exactly one document, and a path to a Markdown file in `docs/`. Other paths into `docs/`, like the output folder of a documentation generator, are left alone. Staged checks read what you're about to commit.
 

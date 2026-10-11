@@ -59,6 +59,7 @@ This release replaces the generated status indexes with document commands. Agent
 - `harness check` checks the links of every Markdown file in the project, not only those of the harness, `README.md` and `AGENTS.md`. Files that Git ignores are skipped.
 - A `.harnessignore` file at the project root, with `.gitignore` patterns, excludes files from the link and document reference checks. It replaces the `harness-ignore` attribute in `.gitattributes`.
 - `harness doctor` no longer looks for `CLAUDE.md`.
+- `harness check` no longer validates skill frontmatter. It failed on skills from other providers in `.agents/skills/`, and through the pre-commit hook it blocked their commits. The JSON report no longer has a `skills` section.
 
 ### Output and project root
 
