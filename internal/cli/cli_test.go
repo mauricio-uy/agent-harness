@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -229,7 +230,23 @@ func TestVersionPrefersLinkerThenModuleThenDev(t *testing.T) {
 	}
 }
 
+// harnessOnPath puts a stand-in harness executable first on PATH, so doctor
+// does not depend on the machine having harness installed.
+func harnessOnPath(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	name := "harness"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
 func TestDoctorFailsOnlyOnProblems(t *testing.T) {
+	harnessOnPath(t)
 	root := t.TempDir()
 	if status, out := run(t, nil, "doctor", "--root", root); status != 1 || !strings.Contains(out, "run harness init") {
 		t.Fatalf("no installation: %d\n%s", status, out)
@@ -248,6 +265,7 @@ func TestDoctorSummarizesAHealthySetup(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+	harnessOnPath(t)
 	root := t.TempDir()
 	for _, args := range [][]string{{"init", "--quiet"}, {"config", "core.hooksPath", ".githooks"}} {
 		if output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
