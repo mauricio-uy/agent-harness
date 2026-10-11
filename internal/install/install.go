@@ -3,9 +3,6 @@
 package install
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +13,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mauricio-uy/agent-harness/internal/docs"
 	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
@@ -35,13 +31,7 @@ const stateFile = ".agents/harness.json"
 
 // state is what .agents/harness.json records about an installation.
 type state struct {
-	// Version is the version of the CLI that last installed or upgraded the payload.
-	Version string   `json:"version,omitempty"`
 	Clients []string `json:"clients"`
-	// Files maps each installed payload file to the digest of the content the
-	// harness wrote, so an upgrade can tell untouched files from changed ones.
-	// Generated indexes and merged files are not recorded.
-	Files map[string]string `json:"files,omitempty"`
 }
 
 // Installer applies the embedded payload to one project root.
@@ -49,11 +39,7 @@ type Installer struct {
 	Root    string
 	Payload fs.FS
 	Out     report.Sink
-	// Version is recorded in the installation state.
-	Version string
 	failed  bool
-	// files collects the digests of the payload files in place.
-	files map[string]string
 }
 
 // ParseClients validates a comma-separated client list; "none" or "" selects none.
@@ -89,7 +75,6 @@ func (in *Installer) Init(clients []string) error {
 	if err != nil {
 		return err
 	}
-	in.files = recorded.Files
 	if err := in.copyTree("template"); err != nil {
 		return err
 	}
@@ -99,9 +84,6 @@ func (in *Installer) Init(clients []string) error {
 		if err := in.addClient(id); err != nil {
 			return err
 		}
-	}
-	if in.Version != "" {
-		recorded.Version = in.Version
 	}
 	for _, id := range clients {
 		if !slices.Contains(recorded.Clients, id) {
@@ -173,10 +155,6 @@ func (in *Installer) copyTree(dir string) error {
 		}
 		target := filepath.Join(in.Root, filepath.FromSlash(rel))
 		if _, err := os.Lstat(target); err == nil {
-			// A file that already matches the payload is adopted as installed.
-			if current, err := os.ReadFile(target); err == nil && digest(current) == digest(content) {
-				in.remember(rel, content)
-			}
 			report.Emitf(in.Out, report.Skip, "%s (exists)", rel)
 			return nil
 		}
@@ -188,9 +166,12 @@ func (in *Installer) copyTree(dir string) error {
 	})
 }
 
-// writeFile writes a payload file at rel and records its digest.
+// writeFile writes an installation file at rel without following links.
 func (in *Installer) writeFile(rel string, content []byte) error {
 	target := filepath.Join(in.Root, filepath.FromSlash(rel))
+	if err := safePath(in.Root, target); err != nil {
+		return err
+	}
 	mode := fs.FileMode(0o644)
 	if path.Dir(rel) == ".githooks" {
 		mode = 0o755
@@ -201,32 +182,7 @@ func (in *Installer) writeFile(rel string, content []byte) error {
 	if err := os.WriteFile(target, content, mode); err != nil {
 		return err
 	}
-	in.remember(rel, content)
 	return nil
-}
-
-// tracked reports whether an upgrade manages rel. Generated indexes belong to
-// synchronization and merged files to their merge.
-func tracked(rel string) bool {
-	return !merged[rel] && !docs.IsGeneratedIndex(rel)
-}
-
-// remember records the digest of a payload file the project now holds.
-func (in *Installer) remember(rel string, content []byte) {
-	if !tracked(rel) {
-		return
-	}
-	if in.files == nil {
-		in.files = map[string]string{}
-	}
-	in.files[rel] = digest(content)
-}
-
-// digest identifies content regardless of its line endings, so a checkout
-// that converts them does not look like a local change.
-func digest(content []byte) string {
-	sum := sha256.Sum256(bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n")))
-	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func (in *Installer) readState() (state, error) {
@@ -248,9 +204,6 @@ func (in *Installer) writeState(s state) error {
 	if s.Clients == nil {
 		s.Clients = []string{}
 	}
-	if in.files != nil {
-		s.Files = in.files
-	}
 	raw, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
@@ -259,10 +212,7 @@ func (in *Installer) writeState(s state) error {
 	if current, err := os.ReadFile(target); err == nil && string(current) == string(raw)+"\n" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(target, append(raw, '\n'), 0o644); err != nil {
+	if err := in.writeFile(stateFile, append(raw, '\n')); err != nil {
 		return err
 	}
 	report.Blank(in.Out)

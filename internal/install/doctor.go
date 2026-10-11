@@ -35,27 +35,30 @@ func (in *Installer) Doctor() error {
 			clients = "none"
 		}
 		report.Emitf(in.Out, report.OK, "%s (clients: %s)", stateFile, clients)
-		in.checkVersion(recorded.Version)
 	}
 	problems += in.checkHook()
 	if slices.Contains(recorded.Clients, "claude-code") {
 		problems += in.checkClaude()
 	}
+	problems += in.checkCommand()
 	if problems > 0 {
 		return fmt.Errorf("%d problem(s) need attention", problems)
 	}
 	return nil
 }
 
-func (in *Installer) checkVersion(installed string) {
-	unknown := func(v string) bool { return v == "" || v == "dev" }
-	switch {
-	case unknown(installed) || unknown(in.Version):
-	case installed != in.Version:
-		report.Emitf(in.Out, report.Warn, "installed with %s, but this CLI is %s; run harness upgrade, or update the CLI if it is the older one", installed, in.Version)
-	default:
-		report.Emitf(in.Out, report.OK, "version %s", in.Version)
+// lookPath is replaceable so tests do not depend on the machine's PATH.
+var lookPath = exec.LookPath
+
+// checkCommand reports whether agents and the Git hook can run harness from
+// PATH, as the skills require; it returns the number of problems.
+func (in *Installer) checkCommand() int {
+	if path, err := lookPath("harness"); err == nil {
+		report.Emitf(in.Out, report.OK, "harness on PATH (%s)", path)
+		return 0
 	}
+	in.Out.Emit(report.Error, "harness is not on PATH, so agents and the Git hook cannot run it; install it or add its directory to PATH")
+	return 1
 }
 
 // checkHook reports whether the pre-commit check runs; it returns the number of problems.
@@ -63,7 +66,7 @@ func (in *Installer) checkHook() int {
 	hook := filepath.Join(in.Root, ".githooks", "pre-commit")
 	info, err := os.Stat(hook)
 	if err != nil {
-		report.Emitf(in.Out, report.Error, ".githooks/pre-commit is missing; run harness upgrade --apply")
+		report.Emitf(in.Out, report.Error, ".githooks/pre-commit is missing; run harness init")
 		return 1
 	}
 	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
@@ -111,11 +114,6 @@ func (in *Installer) checkClaude() int {
 	}
 	if ignore, err := os.ReadFile(filepath.Join(in.Root, ".gitignore")); err != nil || !strings.Contains(string(ignore), blockBegin) {
 		in.Out.Emit(report.Warn, ".gitignore lacks the skill links block; run harness link")
-	}
-	for _, name := range []string{"CLAUDE.md", "CLAUDE.local.md"} {
-		if exists(filepath.Join(in.Root, name)) {
-			report.Emitf(in.Out, report.Warn, `%s exists, so Claude Code reads it instead of AGENTS.md; include AGENTS.md in "Project instructions" with /config`, name)
-		}
 	}
 	return problems
 }

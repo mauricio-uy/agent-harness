@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -74,8 +75,8 @@ func TestUsageErrors(t *testing.T) {
 	root := t.TempDir()
 	for _, args := range [][]string{
 		{"init", "--root", root, "--clients", "cursor"},
-		{"sync", "--root", root, "--apply", "--check"},
-		{"sync", "--root", root, "unknown"},
+		{"docs", "list", "--root", root, "--limit", "-1"},
+		{"docs", "get", "--root", root, "unknown"},
 		{"check", "--root", root, "--format", "xml"},
 		{"init", "--root", filepath.Join(root, "missing")},
 	} {
@@ -113,7 +114,7 @@ func TestCheckJSONReportsEveryCheck(t *testing.T) {
 	if status != 0 || result["ok"] != true {
 		t.Fatalf("a clean install must pass: %d %v", status, result)
 	}
-	for _, key := range []string{"suites", "skills", "links"} {
+	for _, key := range []string{"suites", "links"} {
 		if result[key] == nil {
 			t.Errorf("missing %s: %v", key, result)
 		}
@@ -123,6 +124,7 @@ func TestCheckJSONReportsEveryCheck(t *testing.T) {
 		t.Errorf("errors must be an empty list, not null: %v", plans)
 	}
 
+	os.MkdirAll(filepath.Join(root, "docs", "plans"), 0o755)
 	os.WriteFile(filepath.Join(root, "docs", "plans", "records.md"), []byte("[x](missing.md)\n"), 0o644)
 	status, result = runJSON(t, "--root", root)
 	if status != 1 || result["ok"] != false {
@@ -138,22 +140,75 @@ func TestCheckJSONReportsEveryCheck(t *testing.T) {
 	}
 }
 
-func TestIDAndDatePrintOneBareLine(t *testing.T) {
-	root := t.TempDir()
-	os.MkdirAll(filepath.Join(root, "docs", "plans", "records"), 0o755)
-	os.WriteFile(filepath.Join(root, "docs", "plans", "records", "PLAN-000003-x.md"), nil, 0o644)
-	if status, out := run(t, nil, "id", "--root", root, "plan"); status != 0 || out != "PLAN-000004\n" {
-		t.Fatalf("id: %d %q", status, out)
+func TestCheckFindsTheProjectFromASubdirectory(t *testing.T) {
+	for _, mode := range []string{"working-tree", "staged"} {
+		t.Run(mode, func(t *testing.T) {
+			var args []string
+			root := t.TempDir()
+			if mode == "staged" {
+				if _, err := exec.LookPath("git"); err != nil {
+					t.Skip("git is not available")
+				}
+				if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+					t.Fatalf("git init: %v\n%s", err, output)
+				}
+				args = append(args, "--staged")
+			}
+			if status, out := run(t, nil, "init", "--root", root, "--clients", "none"); status != 0 {
+				t.Fatalf("init: %s", out)
+			}
+			if err := os.WriteFile(filepath.Join(root, "docs", "broken.md"), []byte("[x](missing.md)\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "staged" {
+				if output, err := exec.Command("git", "-C", root, "add", ".").CombinedOutput(); err != nil {
+					t.Fatalf("git add: %v\n%s", err, output)
+				}
+			}
+			t.Chdir(filepath.Join(root, "docs"))
+			status, result := runJSON(t, args...)
+			links := result["links"].(map[string]any)["errors"].([]any)
+			if status != 1 || len(links) != 1 || links[0].(map[string]any)["source"] != "docs/broken.md" {
+				t.Fatalf("check must find the broken link in the project: %d %v", status, result)
+			}
+			project := result["links"].(map[string]any)["scanned"].(float64)
+			status, result = runJSON(t, append(args, "--root", ".")...)
+			if status != 1 || result["links"].(map[string]any)["scanned"].(float64) >= project {
+				t.Fatalf("an explicit root must be used as given: %d %v", status, result)
+			}
+		})
 	}
+}
+
+func TestLinkAndDoctorFindTheProjectFromASubdirectory(t *testing.T) {
+	root := t.TempDir()
+	if status, out := run(t, nil, "init", "--root", root, "--clients", "claude-code"); status != 0 {
+		t.Fatalf("init: %s", out)
+	}
+	link := filepath.Join(root, ".claude", "skills", "implement-plan")
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Join(root, "docs"))
+	if status, out := run(t, nil, "link"); status != 0 {
+		t.Fatalf("link: %s", out)
+	}
+	if _, err := os.Lstat(link); err != nil {
+		t.Fatalf("link must recreate the skill link in the project: %v", err)
+	}
+	if _, out := run(t, nil, "doctor"); !strings.Contains(out, "clients: claude-code") {
+		t.Fatalf("doctor must read the project's installation record:\n%s", out)
+	}
+}
+
+func TestDatePrintsOneBareLine(t *testing.T) {
 	now = func() time.Time { return time.Date(2026, 3, 7, 23, 59, 0, 0, time.Local) }
 	t.Cleanup(func() { now = time.Now })
 	if status, out := run(t, nil, "date"); status != 0 || out != "2026-03-07\n" {
 		t.Fatalf("date: %d %q", status, out)
 	}
-	for _, args := range [][]string{{"id", "--root", root}, {"id", "--root", root, "memo"}, {"id", "--root", root, "plan", "adr"}, {"date", "extra"}} {
-		if status, _ := run(t, nil, args...); status != 1 {
-			t.Errorf("%v must fail", args)
-		}
+	if status, _ := run(t, nil, "date", "extra"); status != 1 {
+		t.Error("date must refuse arguments")
 	}
 }
 
@@ -175,34 +230,32 @@ func TestVersionPrefersLinkerThenModuleThenDev(t *testing.T) {
 	}
 }
 
-func TestUpgradePreviewsThenApplies(t *testing.T) {
-	root := t.TempDir()
-	if status, out := run(t, nil, "upgrade", "--root", root); status != 1 || !strings.Contains(out, "harness init") {
-		t.Fatalf("upgrade needs an installation: %d\n%s", status, out)
+// harnessOnPath puts a stand-in harness executable first on PATH, so doctor
+// does not depend on the machine having harness installed.
+func harnessOnPath(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	name := "harness"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
 	}
-	run(t, nil, "init", "--root", root, "--clients", "none")
-	agents := filepath.Join(root, "AGENTS.md")
-	os.Remove(agents)
-	if status, out := run(t, nil, "upgrade", "--root", root); status != 0 || !strings.Contains(out, "CREATE AGENTS.md") {
-		t.Fatalf("preview: %d\n%s", status, out)
+	if err := os.WriteFile(filepath.Join(dir, name), nil, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(agents); err == nil {
-		t.Fatal("the preview must not write")
-	}
-	if status, out := run(t, nil, "upgrade", "--root", root, "--apply"); status != 0 {
-		t.Fatalf("apply: %d\n%s", status, out)
-	}
-	if _, err := os.Stat(agents); err != nil {
-		t.Fatal("apply must restore the file")
-	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
 func TestDoctorFailsOnlyOnProblems(t *testing.T) {
+	harnessOnPath(t)
 	root := t.TempDir()
 	if status, out := run(t, nil, "doctor", "--root", root); status != 1 || !strings.Contains(out, "run harness init") {
 		t.Fatalf("no installation: %d\n%s", status, out)
 	}
 	run(t, nil, "init", "--root", root, "--clients", "none")
+	// Another hook manager requires manual setup regardless of core.hooksPath.
+	if err := os.MkdirAll(filepath.Join(root, ".husky"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if status, out := run(t, nil, "doctor", "--root", root); status != 0 || !strings.Contains(out, "WARN") {
 		t.Fatalf("warnings alone must not fail: %d\n%s", status, out)
 	}
@@ -212,6 +265,7 @@ func TestDoctorSummarizesAHealthySetup(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+	harnessOnPath(t)
 	root := t.TempDir()
 	for _, args := range [][]string{{"init", "--quiet"}, {"config", "core.hooksPath", ".githooks"}} {
 		if output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {

@@ -22,13 +22,16 @@ func (in *Installer) mergeOpenCodeConfig() error {
 		return err
 	}
 	target := filepath.Join(in.Root, "opencode.json")
+	if err := safePath(in.Root, target); err != nil {
+		return err
+	}
 	raw, err := os.ReadFile(target)
 	if errors.Is(err, fs.ErrNotExist) {
 		if exists(filepath.Join(in.Root, "opencode.jsonc")) {
 			in.warn("opencode.jsonc exists; add the permission.skill entries from the harness's opencode.json manually")
 			return nil
 		}
-		if err := os.WriteFile(target, template, 0o644); err != nil {
+		if err := in.writeFile("opencode.json", template); err != nil {
 			return err
 		}
 		in.Out.Emit(report.Create, "opencode.json")
@@ -71,7 +74,7 @@ func (in *Installer) mergeOpenCodeConfig() error {
 	var buffer bytes.Buffer
 	encodeJSON(&buffer, root, "")
 	buffer.WriteByte('\n')
-	if err := os.WriteFile(target, buffer.Bytes(), 0o644); err != nil {
+	if err := in.writeFile("opencode.json", buffer.Bytes()); err != nil {
 		return err
 	}
 	report.Emitf(in.Out, report.Update, "opencode.json (%d permission.skill entries)", added)

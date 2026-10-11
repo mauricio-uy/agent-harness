@@ -7,5 +7,5 @@ var planStates = []string{"draft", "awaiting-approval", "approved", "in-progress
 // other type; several states require approval of the current revision because
 // execution continues under that approval.
 var Plans = &Suite{Name: "plans", Types: []DocType{
-	{"plan", "PLAN", "plans", "Plans", planStates, []string{"approved", "in-progress", "completed"}},
+	{"plan", "PLAN", "plans", planStates, []string{"approved", "in-progress", "completed"}},
 }}

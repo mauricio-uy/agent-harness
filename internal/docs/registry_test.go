@@ -20,7 +20,7 @@ func TestEveryRegisteredTypeIsRecognizedByEveryIDPattern(t *testing.T) {
 		if documentPrefix.FindString(id+"-a-slug.md") != id {
 			t.Errorf("documentPrefix rejects %s", id)
 		}
-		if got := findDocumentID("../records/" + id + "-moved.md"); got != id {
+		if got := findDocumentID("../" + id + "-moved.md"); got != id {
 			t.Errorf("findDocumentID found %q in a path to %s", got, id)
 		}
 		if !dt.hasID(id) || dt.hasID(id+"0") || dt.hasID("X"+id) {

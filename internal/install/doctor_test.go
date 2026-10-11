@@ -13,6 +13,24 @@ import (
 	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
+func TestMain(m *testing.M) {
+	// Agents run harness from PATH; tests must not depend on this machine's.
+	lookPath = func(string) (string, error) { return "/usr/local/bin/harness", nil }
+	os.Exit(m.Run())
+}
+
+func TestDoctorRequiresHarnessOnPath(t *testing.T) {
+	root := t.TempDir()
+	install(t, root, "codex")
+	lookPath = func(string) (string, error) { return "", exec.ErrNotFound }
+	defer func() { lookPath = func(string) (string, error) { return "/usr/local/bin/harness", nil } }()
+	out, err := doctor(t, root)
+	if err == nil {
+		t.Fatalf("agents and the Git hook cannot run harness without it on PATH:\n%s", out)
+	}
+	expect(t, out, "harness is not on PATH")
+}
+
 func gitRepo(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -30,10 +48,10 @@ func gitIn(t *testing.T, root string, args ...string) {
 	}
 }
 
-func doctor(t *testing.T, root, version string) (string, error) {
+func doctor(t *testing.T, root string) (string, error) {
 	t.Helper()
 	var out bytes.Buffer
-	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}, Version: version}
+	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
 	err := in.Doctor()
 	return out.String(), err
 }
@@ -51,7 +69,7 @@ func TestDoctorReportsAHealthyInstallation(t *testing.T) {
 	root := gitRepo(t)
 	install(t, root, "claude-code")
 	gitIn(t, root, "config", "core.hooksPath", ".githooks")
-	out, err := doctor(t, root, "dev")
+	out, err := doctor(t, root)
 	if err != nil || strings.Contains(out, "WARN") || strings.Contains(out, "ERROR") {
 		t.Fatalf("a fresh installation is healthy: %v\n%s", err, out)
 	}
@@ -61,30 +79,45 @@ func TestDoctorReportsAHealthyInstallation(t *testing.T) {
 func TestDoctorFindsProblemsAndWarnings(t *testing.T) {
 	root := gitRepo(t)
 	var out bytes.Buffer
-	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}, Version: "v1.0.0"}
+	in := &Installer{Root: root, Payload: harness.Payload, Out: report.Text{W: &out}}
 	if err := in.Init([]string{"claude-code"}); err != nil {
 		t.Fatal(err)
 	}
 	os.Remove(filepath.Join(root, ".claude", "skills", "implement-plan"))
-	os.WriteFile(filepath.Join(root, "CLAUDE.md"), []byte("# Notes\n"), 0o644)
-	got, err := doctor(t, root, "v2.0.0")
+	got, err := doctor(t, root)
 	if err == nil {
 		t.Fatalf("a missing link is a problem:\n%s", got)
 	}
 	expect(t, got,
 		"ERROR: .claude/skills/implement-plan is missing; run harness link",
-		"WARN   CLAUDE.md exists",
-		"WARN   installed with v1.0.0",
 		"WARN   the pre-commit check is off",
 	)
 }
 
 func TestDoctorWithoutInstallation(t *testing.T) {
-	out, err := doctor(t, t.TempDir(), "dev")
+	out, err := doctor(t, t.TempDir())
 	if err == nil {
 		t.Fatal("no installation is a problem")
 	}
 	expect(t, out, "ERROR: .agents/harness.json is missing; run harness init")
+}
+
+func TestInitRestoresMissingHook(t *testing.T) {
+	root := gitRepo(t)
+	install(t, root)
+	gitIn(t, root, "config", "core.hooksPath", ".githooks")
+	if err := os.Remove(filepath.Join(root, ".githooks", "pre-commit")); err != nil {
+		t.Fatal(err)
+	}
+	out, err := doctor(t, root)
+	if err == nil {
+		t.Fatal("a missing hook is a problem")
+	}
+	expect(t, out, ".githooks/pre-commit is missing; run harness init")
+	install(t, root)
+	if out, err = doctor(t, root); err != nil {
+		t.Fatalf("init must restore the hook: %v\n%s", err, out)
+	}
 }
 
 func TestOtherHookManagersAreDetected(t *testing.T) {
@@ -92,14 +125,14 @@ func TestOtherHookManagersAreDetected(t *testing.T) {
 	install(t, root)
 	os.WriteFile(filepath.Join(root, ".pre-commit-config.yaml"), []byte("repos: []\n"), 0o644)
 	os.MkdirAll(filepath.Join(root, ".husky"), 0o755)
-	out, _ := doctor(t, root, "dev")
+	out, _ := doctor(t, root)
 	expect(t, out, "WARN   found husky, pre-commit", "harness check --staged")
 	if strings.Contains(out, "the pre-commit check is off") {
 		t.Errorf("with another hook manager, do not suggest core.hooksPath:\n%s", out)
 	}
 
 	gitIn(t, root, "config", "core.hooksPath", ".githooks")
-	out, _ = doctor(t, root, "dev")
+	out, _ = doctor(t, root)
 	expect(t, out, "no longer run")
 
 	var initOut bytes.Buffer

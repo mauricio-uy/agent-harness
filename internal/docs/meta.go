@@ -1,4 +1,4 @@
-// Package docs validates harness documentation, regenerates its indexes, and
+// Package docs queries, edits and validates harness documentation and
 // checks local Markdown links.
 package docs
 
@@ -29,13 +29,18 @@ var (
 // ReadMetadata returns the YAML frontmatter of a Markdown file as plain values:
 // map[string]any, []any, string, int64, float64, bool, Date, Timestamp, or nil.
 func ReadMetadata(path string) (map[string]any, error) {
+	data, _, err := readDocument(path)
+	return data, err
+}
+
+func readDocument(path string) (map[string]any, string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	lines := strings.Split(lineBreaker.Replace(strings.TrimPrefix(string(raw), "\ufeff")), "\n")
 	if len(lines) == 0 || lines[0] != "---" {
-		return nil, errors.New("missing YAML frontmatter")
+		return nil, "", errors.New("missing YAML frontmatter")
 	}
 	end := -1
 	for i := 1; i < len(lines); i++ {
@@ -45,24 +50,24 @@ func ReadMetadata(path string) (map[string]any, error) {
 		}
 	}
 	if end < 0 {
-		return nil, errors.New("unclosed YAML frontmatter")
+		return nil, "", errors.New("unclosed YAML frontmatter")
 	}
 	var node yaml.Node
 	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &node); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if node.Kind == 0 {
-		return nil, errors.New("frontmatter must be a mapping")
+		return nil, "", errors.New("frontmatter must be a mapping")
 	}
 	value, err := decodeNode(&node)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	data, ok := value.(map[string]any)
 	if !ok {
-		return nil, errors.New("frontmatter must be a mapping")
+		return nil, "", errors.New("frontmatter must be a mapping")
 	}
-	return data, nil
+	return data, strings.Join(lines[end+1:], "\n"), nil
 }
 
 // decodeNode rejects ambiguous YAML instead of silently using the last duplicate key.
@@ -159,14 +164,6 @@ func PositiveInt(value any) (int64, bool) {
 	return v, ok && v > 0
 }
 
-var tableEscapes = regexp.MustCompile(`([\\` + "`" + `*_{}\[\]()#+.!|~-])`)
-
-// TableText escapes Markdown and HTML syntax so a title cannot create links or columns.
-func TableText(value string) string {
-	value = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(value)
-	return tableEscapes.ReplaceAllString(value, `\$1`)
-}
-
 // QuotePath percent-encodes a slash-separated path, keeping unreserved characters and slashes.
 func QuotePath(path string) string {
 	var b strings.Builder
@@ -243,23 +240,6 @@ func relSlash(root, path string) string {
 	return filepath.ToSlash(rel)
 }
 
-// readText reads a generated file with universal newlines, as the comparison
-// must not flag an index checked out with CRLF line endings.
-func readText(path string) (string, bool) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return "", false
-	}
-	return lineBreaker.Replace(string(raw)), true
-}
-
-func writeText(path, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte(content), 0o644)
-}
-
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
@@ -274,9 +254,4 @@ func isDir(path string) bool {
 func isFile(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
-}
-
-func notRegular(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.Mode().IsRegular()
 }

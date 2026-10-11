@@ -10,6 +10,7 @@ approval:
   revision: null
   date: null
 related: []
+supersedes: []
 ---
 
 # Replace with the quality or constraint
@@ -42,4 +43,4 @@ List missing targets or conditions and whose input is needed, or state that none
 
 ## Review history
 
-- Revision 1: Initial draft; awaiting human review.
+- Revision 1: Initial draft; not yet approved.

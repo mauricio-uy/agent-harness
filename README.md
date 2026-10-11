@@ -1,34 +1,37 @@
 # Agent Harness
 
-Agent Harness helps you work with coding agents through documents. It adds a set of skills and a `docs/` folder to your project, so plans, specifications, research and runbooks end up written down, reviewed by you and kept in order by a small CLI.
+Agent Harness helps you work with coding agents through documents. It adds a set of skills and a `docs/` folder to your project, so plans, specifications, research and runbooks end up written down, reviewed by you and kept in order by a small CLI. It works with Claude Code, Codex, OpenCode, Pi and any other client that reads `.agents/skills/`.
 
-The skills follow the [Agent Skills specification](https://agentskills.io/specification), so any agent that reads `.agents/skills/` can use them. On top of that, the CLI knows what Claude Code, Codex, OpenCode and Pi need to work well with them.
+The harness guides the agent but can't force it. Nothing stops an agent from running `harness docs approve` on its own, so review approvals in the diff like any other change.
+
+## Quick start
+
+Download the archive for your system from the [releases page](https://github.com/mauricio-uy/agent-harness/releases) and put `harness` on your `PATH`. `checksums.txt` on the same page lets you verify it. With Go 1.26 or newer you can build it instead:
+
+```sh
+go install github.com/mauricio-uy/agent-harness/cmd/harness@latest
+```
+
+Then, inside your project:
+
+```sh
+harness init
+git config core.hooksPath .githooks
+```
+
+`init` asks which clients to set up, or takes them with `--clients claude-code,codex`. It never overwrites a file you already have. If your project already runs hooks with husky, lefthook or pre-commit, skip the second line and see [Git hook](#git-hook).
+
+Next, ask your agent to fill in `docs/overview.md` with a short description of the project. If you set up Claude Code, `init` links the skills into `.claude/skills/` and lists the links in `.gitignore`, so they are not committed. Anyone else who clones the project runs `harness link` once to recreate them.
 
 ## How it works
 
-The agent writes the document and you decide. When you ask for a plan, a specification, a research report or a runbook, the agent drafts it and waits for your review. Your approval is recorded in the document itself, tied to the revision you read.
+- **You decide whether a change needs a plan.** Before touching code, the agent recommends either writing a plan or going straight to the change, and waits for your choice.
+- **The agent writes, you approve.** Plans, specifications, research and runbooks are drafted by the agent and wait for your review. Your approval is recorded in the document, tied to the revision you read.
+- **Progress lives in the plan.** `implement-plan` works in small steps, tests first, and keeps a checkpoint in the plan, so a new session knows where to pick up.
+- **The CLI keeps documents consistent.** Agents change frontmatter through `harness docs` commands instead of editing YAML, and a Git hook checks every document and link before each commit.
+- **The project keeps its memory.** Agents read `docs/overview.md` and `docs/glossary.md` before working and update them as the project changes.
 
-You decide whether a change needs a plan. Before touching code, the agent looks at the size of what you asked for and recommends either writing a plan or going straight to the change. You have the final word. Approved plans are carried out through the `implement-plan` skill, and the agent checks with you before going beyond what you approved. The `write-plan` skill only runs when you call it.
-
-Progress is saved in the plan. `implement-plan` works in small steps, writing tests first, and keeps a checkpoint inside the plan. If a session ends halfway, the next one knows where to pick up.
-
-The CLI keeps everything consistent. It validates the documents and their approvals, rebuilds the indexes and checks that every local link works. A Git hook runs these checks before each commit.
-
-Keep in mind that the harness guides the agent but can't force it. It doesn't verify who approved something, and an agent could still ignore the rules. What it does is make those cases easy to spot in the documents.
-
-## What gets installed
-
-The [template/](template/) folder is exactly what `harness init` copies into your project, so you can look around before trying it.
-
-| Path | What's inside |
-| --- | --- |
-| [AGENTS.md](template/AGENTS.md) | The rules every agent follows. |
-| [.agents/skills/](template/.agents/skills/) | The skills, with their formats and templates. |
-| [.agents/shared/](template/.agents/shared/README.md) | Formats for the project overview and the glossary. |
-| [docs/](template/docs/README.md) | A folder for each type of document, plus a project [overview](template/docs/overview.md) and a [glossary](template/docs/glossary.md). |
-| [.githooks/pre-commit](template/.githooks/pre-commit) | Runs the checks before each commit. |
-
-These are the skills:
+## Skills
 
 | Skill | What it's for |
 | --- | --- |
@@ -38,106 +41,93 @@ These are the skills:
 | [write-research-report](template/.agents/skills/write-research-report/SKILL.md) | Looking into a question and writing down what was found. |
 | [write-runbook](template/.agents/skills/write-runbook/SKILL.md) | Documenting how to run an operation or respond to an incident. |
 
-## How documents are organized
+Agents pick up most skills when they fit the request. `write-plan` only runs when you call it:
 
-Every type of document uses the same layout. Here it is for [plans](template/docs/plans/README.md):
+| Client | write-plan | Other skills |
+| --- | --- | --- |
+| Claude Code | `/write-plan` | `/name`, or automatic |
+| Codex | `$write-plan` | `$name`, or automatic |
+| OpenCode | `/write-plan` | Automatic |
+| Pi | `/skill:write-plan` | `/skill:name`, or automatic |
 
-```
-docs/plans/
-  README.md            explains each state and links to its index
-  draft.md             one index per state, generated by the CLI
-  in-progress.md
-  ...
-  records/
-    PLAN-000001-slug.md
-```
+Pi has no standard way to keep a skill from running on its own, so there `write-plan` relies on the rules in `AGENTS.md`.
 
-Documents live in `records/` and stay there for good, so a link to a plan keeps working after its status changes, even if you shared it in an issue or a chat. When a status changes, only its row moves from one index to another. That way an agent, or you, can open just the list you care about, like the plans in progress, without loading everything else.
-
-## Supported agents
-
-You choose which agents to set up during installation. The base install works with none of them. Skills are linked instead of copied, so no agent reads the same skill twice.
-
-| Agent | What `harness init` adds |
-| --- | --- |
-| Claude Code | A link to each skill in `.claude/skills/`, and a version of `write-plan` that only runs when you call it. Claude Code reads `AGENTS.md` on its own, so no `CLAUDE.md` is needed. **Check your setup:** if your project already has a `CLAUDE.md` or `CLAUDE.local.md`, Claude Code reads that file instead of `AGENTS.md`. To load both, set "Project instructions" to include `AGENTS.md` in `/config`. |
-| Codex | An `agents/openai.yaml` file in each skill that tells Codex when it can use it. |
-| OpenCode | A few entries in `opencode.json` that stop it from loading `write-plan` by itself, and a `/write-plan` command. |
-| Pi | Nothing. Pi reads `.agents/skills/` and `AGENTS.md` directly. |
-
-You can see these files in [template-clients/](template-clients/). Here is how you call the skills in each agent:
-
-| Skill | Codex | Claude Code | OpenCode | Pi |
-| --- | --- | --- | --- | --- |
-| write-plan | `$write-plan` | `/write-plan` | `/write-plan` | `/skill:write-plan` |
-| The rest | `$name`, or automatic | `/name`, or automatic | Automatic | `/skill:name`, or automatic |
-
-In Codex, Claude Code and OpenCode, `write-plan` only runs when you call it. Pi has no standard way to prevent that, so there it relies on the skill's own instructions and the agent could still pick it up by itself.
-
-## Trying it out
-
-Download the archive for your system from the [releases page](https://github.com/mauricio-uy/agent-harness/releases), extract it and put `harness` somewhere on your `PATH`. `checksums.txt` on the same page lets you verify the download.
-
-If you have Go 1.26 or newer, you can build it instead:
-
-```sh
-go install github.com/mauricio-uy/agent-harness/cmd/harness@latest
-```
-
-`harness version` tells you which version you have.
-
-Then, inside your project:
-
-```sh
-harness init
-git config core.hooksPath .githooks
-```
-
-If your project already runs hooks with another tool, such as husky or pre-commit, skip the second line and read [Git hook](#git-hook) first.
-
-`init` asks which agents to set up. Use the arrows to move, space to select and enter to confirm. You can also skip the question with `--clients claude-code,codex`. It never overwrites a file you already have. If something is in the way, it tells you and leaves it alone.
-
-Once it's installed, ask your agent to fill in `docs/overview.md` with a short description of the project. The skill links only exist on your machine, so anyone else who clones the project runs `harness link` once.
-
-These are the commands you'll use day to day:
+## Commands
 
 | Command | What it does |
 | --- | --- |
-| `harness sync` | Checks the documents and shows which indexes would change. Add `--apply` to update them. |
-| `harness check` | Runs every check without changing anything. |
-| `harness check --staged` | Runs the same checks on what you're about to commit. The Git hook uses this one. |
-| `harness check --format json` | Prints the results as a single JSON document, so an agent or a script can read them. |
-| `harness link` | Recreates the skill links for the agents you chose. |
-| `harness upgrade` | Shows what a newer version of the harness would change in your project. Add `--apply` to do it. |
-| `harness doctor` | Checks how the harness is set up in this clone: the installation record, the Git hook and the agents' files. |
-| `harness id plan` | Prints the next free ID for a type of document, such as `PLAN-000004`. The skills use it so agents don't pick IDs by hand. |
-| `harness date` | Prints today's date from your system. The skills use it for every date they write. |
+| `harness init` | Installs the harness and the files for the clients you choose. Running it again adds what is missing. |
+| `harness check` | Checks every document and link without changing anything. `--staged` checks what you're about to commit, `--format json` prints one JSON document and `--format github` adds annotations in GitHub Actions. |
+| `harness link` | Recreates the skill links in a new clone. |
+| `harness doctor` | Checks how the harness is set up in this clone, including the Git hook and whether `harness` is on `PATH`. |
+| `harness docs` | Finds documents and changes their frontmatter. Agents use it, guided by the skills. |
+| `harness date` | Prints today's date. Skills use it for the dates they write. |
 
-What `harness check` looks at:
+`harness docs` is meant for agents, but it's handy for looking around too:
 
-- Each document has the fields it needs, a unique ID that matches its file name, a valid state and consistent dates.
-- A document that needs approval in its current state is approved for its current revision.
-- References to other documents point to exactly one document, and replacements don't go in circles.
-- Every index matches the documents, and every document is inside `records/`.
-- The skills follow the Agent Skills specification.
-- Every local link and heading anchor works. If a link points to a document that was moved, it suggests where it went.
-- Code and every other tracked file that isn't Markdown only mention documents that exist. That covers a document ID such as `ADR-000003`, which has to match exactly one document, and a path to a Markdown file in `docs/`. Other paths into `docs/`, like the output folder of a documentation generator, are left alone. Staged checks read what you're about to commit.
-
-If some files mention IDs that aren't real references, like example data in tests, exclude them in `.gitattributes`:
-
-```
-tests/** harness-ignore
+```sh
+harness docs list --type plan --status approved,in-progress
+harness docs get PLAN-000003 --body
+harness docs graph ADR-000001
 ```
 
-Git only applies this inside a repository, so outside one those files are still checked.
+Every subcommand prints one line of JSON and refuses a change that would break the document's rules, such as approving a state without approval of the current revision. `harness docs --help` lists them all.
 
-## Git hook
+These commands find the project on their own from any subdirectory. Use `--root` to point them somewhere else.
 
-`harness init` adds `.githooks/pre-commit`, which runs `harness check --staged` before each commit. Turn it on once per clone with `git config core.hooksPath .githooks`.
+## Reference
 
-If your project already uses another tool for Git hooks, setting `core.hooksPath` would stop that tool's hooks from running. So `harness init` and `harness doctor` look for husky, lefthook, the pre-commit framework, a hook in `.git/hooks` and a `core.hooksPath` that points somewhere else. When they find one, they warn you instead of suggesting `core.hooksPath`. In that case, add the check to the tool you already use.
+### What gets installed
 
-With husky, add this line to `.husky/pre-commit`:
+The [template/](template/) folder is exactly what `harness init` copies, so you can look around before trying it.
+
+| Path | What's inside |
+| --- | --- |
+| [AGENTS.md](template/AGENTS.md) | The rules every agent follows. |
+| [.agents/skills/](template/.agents/skills/) | The skills, with their formats and templates. |
+| [.agents/shared/](template/.agents/shared/README.md) | Formats for the project overview and the glossary. |
+| [docs/](template/docs/README.md) | The document types, a project [overview](template/docs/overview.md) and a [glossary](template/docs/glossary.md). |
+| [.githooks/pre-commit](template/.githooks/pre-commit) | Runs the checks before each commit. |
+
+Documents live directly in their type directory, such as `docs/plans/PLAN-000001-slug.md`. An ID and its path never change, so links keep working when a document changes state. The YAML frontmatter is the only record of that state.
+
+### What each client gets
+
+Skills are linked instead of copied, so no client reads the same skill twice. The clients' files are in [template-clients/](template-clients/).
+
+| Client | What `harness init` adds |
+| --- | --- |
+| Claude Code | A link to each skill in `.claude/skills/`, and a version of `write-plan` that only runs when you call it. Claude Code [reads `AGENTS.md`](https://code.claude.com/docs/en/memory) on its own. |
+| Codex | An `agents/openai.yaml` file in each skill that tells Codex when it can use it. |
+| OpenCode | Entries in `opencode.json` that keep it from loading `write-plan` by itself, and a `/write-plan` command. OpenCode reads both `.claude/skills/` and `.agents/skills/` but keeps one skill per name, so it works next to Claude Code. |
+| Pi | Nothing. Pi reads `.agents/skills/` and `AGENTS.md` directly. |
+
+`init` records the chosen clients in `.agents/harness.json`, which `link` and `doctor` read in each clone.
+
+### What `harness check` looks at
+
+- Each document has the fields it needs, a unique ID that matches its file name, a valid state and consistent dates, and lives directly in its type directory.
+- A document in a state that needs approval is approved for its current revision.
+- References between documents point to exactly one document, and replacements don't go in circles.
+- Every local link and heading anchor works in every Markdown file of the project. Links to websites are not checked. If a link points to a document that moved, it suggests where it went.
+- Code and other tracked files only mention documents that exist, by ID such as `ADR-000003` or by path into `docs/`.
+
+Files that Git ignores are never checked. To skip others, like third-party code or tests with example IDs, list them in a `.harnessignore` file at the project root, with `.gitignore` patterns except `!`:
+
+```
+vendor/
+tests/**/*_test.go
+```
+
+The file applies to links and document references. Documents are always checked.
+
+### Git hook
+
+`harness init` adds `.githooks/pre-commit`, which runs `harness check --staged`. Turn it on once per clone with `git config core.hooksPath .githooks`. It's a `sh` script, and on Windows it runs with the shell that comes with Git for Windows.
+
+Setting `core.hooksPath` would stop another hook tool from running, so `init` and `doctor` look for husky, lefthook, the pre-commit framework, a hook in `.git/hooks` and a `core.hooksPath` that points elsewhere, and warn you instead. In that case, add the check to the tool you already use.
+
+With husky, in `.husky/pre-commit`:
 
 ```sh
 harness check --staged
@@ -165,15 +155,13 @@ repos:
         pass_filenames: false
 ```
 
-If someone commits without the CLI installed, the hook prints a warning and lets the commit through. Set `HARNESS_HOOK_STRICT=1` to block the commit instead. `harness doctor` tells you whether the hook runs in the current clone.
+If someone commits without the CLI installed, the hook prints a warning and lets the commit through. Set `HARNESS_HOOK_STRICT=1` to block it instead.
 
-## Updating the harness
+### Versions
 
-`harness init` records in `.agents/harness.json` the version it installed and a fingerprint of every file it wrote. After you update the CLI, run `harness upgrade` in your project to see what the new version changes, and `harness upgrade --apply` to write it.
+`harness version` tells you which version you have, and the [changelog](CHANGELOG.md) describes what each one changed. Until 1.0.0 a new version may change the layout, the installed files or the CLI.
 
-An upgrade only replaces a file that is still exactly as the harness left it. If you or your agent edited a file, like `AGENTS.md` or `docs/overview.md`, it stays as it is and the upgrade tells you, so you can bring over the changes you want by hand. Line ending conversions made by Git don't count as edits. A file the new version no longer installs is left in place and reported. The indexes aren't touched either: run `harness sync --apply` afterwards to regenerate them.
-
-## References
+### Links
 
 - [Agent Skills specification](https://agentskills.io/specification)
 - [Codex skills](https://learn.chatgpt.com/docs/build-skills)

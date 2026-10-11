@@ -36,12 +36,6 @@ var (
 	uriScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
 )
 
-// linkSources are the directories and root files whose Markdown the checker scans.
-var (
-	linkSourceDirs  = []string{"docs", ".agents", ".claude/commands", ".claude/skills", ".opencode/commands"}
-	linkSourceFiles = []string{"README.md", "AGENTS.md", "CLAUDE.md"}
-)
-
 type link struct {
 	destination string
 	line        int
@@ -276,20 +270,11 @@ func splitDestination(value string) destination {
 	return d
 }
 
-func linkSources(root string) []string {
-	seen := map[string]bool{}
+// linkSources lists the project's Markdown that the ignore file does not exclude.
+func linkSources(root string, files tree, ignore ignoreRules) []string {
 	var paths []string
-	for _, dir := range linkSourceDirs {
-		for _, path := range markdownFiles(filepath.Join(root, filepath.FromSlash(dir))) {
-			if !seen[path] {
-				seen[path] = true
-				paths = append(paths, path)
-			}
-		}
-	}
-	for _, name := range linkSourceFiles {
-		path := filepath.Join(root, name)
-		if isFile(path) && !seen[path] {
+	for _, path := range files.markdown(root) {
+		if !ignore.ignores(relSlash(root, path)) {
 			paths = append(paths, path)
 		}
 	}
@@ -304,7 +289,6 @@ func CheckLinks(root string) (int, []LinkError) { return checkLinks(root, diskTr
 // checkLinks checks the links of the Markdown under root, asking files for
 // whether a target exists.
 func checkLinks(root string, files tree) (int, []LinkError) {
-	var errors []LinkError
 	cache := map[string]parsed{}
 	document := func(path string) (parsed, error) {
 		if p, ok := cache[path]; ok {
@@ -317,7 +301,8 @@ func checkLinks(root string, files tree) (int, []LinkError) {
 		return p, err
 	}
 	documents := documentPaths(root)
-	sources := linkSources(root)
+	ignore, errors := loadIgnore(root)
+	sources := linkSources(root, files, ignore)
 	if !files.isDir(filepath.Join(root, "docs")) {
 		errors = append(errors, LinkError{Source: "docs", Line: 1, Reason: "documentation directory is missing"})
 	}

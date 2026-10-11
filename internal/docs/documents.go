@@ -2,6 +2,8 @@ package docs
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -10,59 +12,44 @@ import (
 	"github.com/mauricio-uy/agent-harness/internal/report"
 )
 
-// DocType describes one document type. Its directory under docs/ holds a
-// hand-written README.md, one generated index per state, and the documents
-// themselves in records/, where they never move.
+// DocType describes a document type and its directory under docs/.
 type DocType struct {
-	Kind, Prefix, Folder, Title string
-	// States lists the lifecycle states in index order. A type without states
-	// gets a single all.md index, so states can be added later without moving files.
+	Kind, Prefix, Folder string
+	// States lists the lifecycle states.
 	States []string
 	// Approved lists the states that require approval of the current revision.
 	Approved []string
 }
 
-// RecordsDir is the directory, inside each type's folder, that holds its documents.
-const RecordsDir = "records"
-
-// Suite is a group of document types synchronized together by one command.
-// Each suite owns only its own indexes.
+// Suite groups document types for validation.
 type Suite struct {
 	Name     string
 	Types    []DocType
-	validate func(record, DocType, *Suite) []string
-	columns  []column
-}
-
-type column struct {
-	label string
-	value func(map[string]any) string
+	validate func(record, DocType) []string
 }
 
 type record struct {
 	path, rel string
+	body      string
 	data      map[string]any
 	kind      string // empty for external documents that only establish identity
 }
 
 var externalFile = regexp.MustCompile(`^([A-Z]+-[0-9]{6})[-.]`)
 
-// reviewStates are the states of a reviewed document whose approval state is approved.
-func reviewStates(approved string) []string {
-	return []string{"awaiting-approval", "draft", approved, "rejected", "superseded"}
-}
+var reviewStates = []string{"awaiting-approval", "draft", "approved", "rejected", "superseded"}
 
 // Specifications covers ADRs, use cases, and functional and non-functional requirements.
 var Specifications = &Suite{Name: "specifications", Types: []DocType{
-	{"adr", "ADR", "decisions", "Architecture Decision Records", reviewStates("accepted"), []string{"accepted"}},
-	{"use-case", "UC", "use-cases", "Use Cases", reviewStates("approved"), []string{"approved"}},
-	{"functional-requirement", "FR", "requirements/functional", "Functional Requirements", reviewStates("approved"), []string{"approved"}},
-	{"non-functional-requirement", "NFR", "requirements/non-functional", "Non-Functional Requirements", reviewStates("approved"), []string{"approved"}},
+	{"adr", "ADR", "decisions", reviewStates, []string{"approved"}},
+	{"use-case", "UC", "use-cases", reviewStates, []string{"approved"}},
+	{"functional-requirement", "FR", "requirements/functional", reviewStates, []string{"approved"}},
+	{"non-functional-requirement", "NFR", "requirements/non-functional", reviewStates, []string{"approved"}},
 }}
 
 // Research covers research records.
 var Research = &Suite{Name: "research", Types: []DocType{
-	{"research", "RES", "research", "Research", reviewStates("approved"), []string{"approved"}},
+	{"research", "RES", "research", reviewStates, []string{"approved"}},
 }}
 
 var (
@@ -73,17 +60,8 @@ var (
 // Runbooks covers operational runbooks, which add ownership and validation records.
 var Runbooks = &Suite{
 	Name:     "runbooks",
-	Types:    []DocType{{"runbook", "RUN", "runbooks", "Runbooks", runbookStates, []string{"approved"}}},
+	Types:    []DocType{{"runbook", "RUN", "runbooks", runbookStates, []string{"approved"}}},
 	validate: validateRunbook,
-	columns: []column{
-		{"Validation", func(data map[string]any) string { return fmt.Sprint(asMap(data["validation"])["status"]) }},
-		{"Validated on", func(data map[string]any) string {
-			if when, ok := ISODate(asMap(data["validation"])["date"]); ok {
-				return formatDate(when)
-			}
-			return "—"
-		}},
-	},
 }
 
 func (s *Suite) owns(prefix string) bool {
@@ -104,7 +82,28 @@ func asMap(value any) map[string]any {
 	return m
 }
 
-func validateDocument(r record, t DocType, allowed []string) []string {
+// MatchesDocument checks the shared identity rules used by validation and
+// queries. filename is the document's base name.
+func (t DocType) MatchesDocument(filename string, data map[string]any) bool {
+	return len(t.identityErrors(filename, data)) == 0
+}
+
+func (t DocType) identityErrors(filename string, data map[string]any) []string {
+	var errors []string
+	identifier, _ := data["id"].(string)
+	if !t.hasID(identifier) {
+		errors = append(errors, fmt.Sprintf("id must use prefix %s and six digits", t.Prefix))
+	}
+	if match := documentFile.FindStringSubmatch(filename); match == nil || match[1] != identifier {
+		errors = append(errors, "filename must match the ID and a lowercase hyphenated slug")
+	}
+	if kind, _ := data["type"].(string); kind != t.Kind {
+		errors = append(errors, fmt.Sprintf("type must be %s in this directory", t.Kind))
+	}
+	return errors
+}
+
+func validateDocument(r record, t DocType) []string {
 	var errors []string
 	data := r.data
 	for _, key := range []string{"id", "type", "title", "status", "created", "updated", "revision", "approval", "related"} {
@@ -112,66 +111,20 @@ func validateDocument(r record, t DocType, allowed []string) []string {
 			errors = append(errors, "missing field: "+key)
 		}
 	}
-	identifier, _ := data["id"].(string)
-	if !t.hasID(identifier) {
-		errors = append(errors, fmt.Sprintf("id must use prefix %s and six digits", t.Prefix))
-	}
-	if match := documentFile.FindStringSubmatch(filepath.Base(r.path)); match == nil || match[1] != identifier {
-		errors = append(errors, "filename must match the ID and a lowercase hyphenated slug")
-	}
-	if kind, _ := data["type"].(string); kind != t.Kind {
-		errors = append(errors, fmt.Sprintf("type must be %s in this directory", t.Kind))
-	}
-	if !singleLine(data["title"]) {
-		errors = append(errors, "title must be a nonempty single-line string")
-	}
+	errors = append(errors, t.identityErrors(filepath.Base(r.path), data)...)
+	errors = append(errors, validateDiscoveryFields(data)...)
 	status, _ := data["status"].(string)
-	if !slices.Contains(allowed, status) {
-		errors = append(errors, "status must be one of: "+strings.Join(allowed, ", "))
+	if !slices.Contains(t.States, status) {
+		errors = append(errors, "status must be one of: "+strings.Join(t.States, ", "))
 	}
 	created, createdOK := ISODate(data["created"])
 	updated, updatedOK := ISODate(data["updated"])
-	if !createdOK {
-		errors = append(errors, "created must be a valid YYYY-MM-DD date")
-	}
-	if !updatedOK {
-		errors = append(errors, "updated must be a valid YYYY-MM-DD date")
-	}
 	if createdOK && updatedOK && created.After(updated) {
 		errors = append(errors, "updated must not precede created")
 	}
-	revision, revisionOK := PositiveInt(data["revision"])
-	if !revisionOK {
-		errors = append(errors, "revision must be a positive integer")
-	}
-	approval, isMap := data["approval"].(map[string]any)
-	_, hasRevision := approval["revision"]
-	_, hasDate := approval["date"]
-	if !isMap || !hasRevision || !hasDate {
-		errors = append(errors, "approval must contain revision and date")
-	} else {
-		approvedValue, when := approval["revision"], approval["date"]
-		approved, approvedOK := PositiveInt(approvedValue)
-		if (approvedValue == nil) != (when == nil) {
-			errors = append(errors, "approval fields must be populated together")
-		}
-		if approvedValue != nil && !approvedOK {
-			errors = append(errors, "approval.revision must be a positive integer or null")
-		} else if approvedOK && revisionOK && approved > revision {
-			errors = append(errors, "approval.revision must not exceed revision")
-		}
-		if when != nil {
-			if parsed, ok := ISODate(when); !ok {
-				errors = append(errors, "approval.date must be a valid YYYY-MM-DD date")
-			} else if createdOK && updatedOK && (parsed.Before(created) || parsed.After(updated)) {
-				errors = append(errors, "approval.date must fall between created and updated")
-			}
-		}
-		if slices.Contains(t.Approved, status) && (!approvedOK || !revisionOK || approved != revision || when == nil) {
-			errors = append(errors, status+" requires approval of the current revision")
-		}
-	}
+	errors = append(errors, validateApproval(data, slices.Contains(t.Approved, status))...)
 	seen := map[string]bool{}
+	identifier, _ := data["id"].(string)
 	for _, field := range []string{"related", "supersedes"} {
 		value, present := data[field]
 		if !present {
@@ -200,9 +153,65 @@ func validateDocument(r record, t DocType, allowed []string) []string {
 	return errors
 }
 
-func validateRunbook(r record, t DocType, s *Suite) []string {
+// validateDiscoveryFields checks values needed to locate, sort and describe a
+// document. Lifecycle checks add chronology, current approval and relations.
+func validateDiscoveryFields(data map[string]any) []string {
+	var errors []string
+	if !singleLine(data["title"]) {
+		errors = append(errors, "title must be a nonempty single-line string")
+	}
+	for _, field := range []string{"created", "updated"} {
+		if _, ok := ISODate(data[field]); !ok {
+			errors = append(errors, field+" must be a valid YYYY-MM-DD date")
+		}
+	}
+	if _, ok := PositiveInt(data["revision"]); !ok {
+		errors = append(errors, "revision must be a positive integer")
+	}
+	return errors
+}
+
+// validateApproval checks the evidence itself. Queries allow a well-formed
+// approval of an older revision; lifecycle validation can require a current one.
+func validateApproval(data map[string]any, requireCurrent bool) []string {
+	var errors []string
+	revision, revisionOK := PositiveInt(data["revision"])
+	created, createdOK := ISODate(data["created"])
+	updated, updatedOK := ISODate(data["updated"])
+	approval, isMap := data["approval"].(map[string]any)
+	_, hasRevision := approval["revision"]
+	_, hasDate := approval["date"]
+	if !isMap || !hasRevision || !hasDate {
+		errors = append(errors, "approval must contain revision and date")
+	} else {
+		approvedValue, when := approval["revision"], approval["date"]
+		approved, approvedOK := PositiveInt(approvedValue)
+		if (approvedValue == nil) != (when == nil) {
+			errors = append(errors, "approval fields must be populated together")
+		}
+		if approvedValue != nil && !approvedOK {
+			errors = append(errors, "approval.revision must be a positive integer or null")
+		} else if approvedOK && revisionOK && approved > revision {
+			errors = append(errors, "approval.revision must not exceed revision")
+		}
+		if when != nil {
+			if parsed, ok := ISODate(when); !ok {
+				errors = append(errors, "approval.date must be a valid YYYY-MM-DD date")
+			} else if createdOK && updatedOK && (parsed.Before(created) || parsed.After(updated)) {
+				errors = append(errors, "approval.date must fall between created and updated")
+			}
+		}
+		if requireCurrent && (!approvedOK || !revisionOK || approved != revision || when == nil) {
+			status, _ := data["status"].(string)
+			errors = append(errors, status+" requires approval of the current revision")
+		}
+	}
+	return errors
+}
+
+func validateRunbook(r record, t DocType) []string {
 	data := r.data
-	errors := validateDocument(r, t, runbookStates)
+	errors := validateDocument(r, t)
 	owner, hasOwner := data["owner"]
 	if !hasOwner {
 		errors = append(errors, "missing field: owner")
@@ -363,110 +372,49 @@ func (s *Suite) relationErrors(records []record, catalog map[string][]record) []
 	return errors
 }
 
-// index is one generated index file of a type: a state, or every document
-// for a type without states.
-type index struct {
-	name, title string
-	includes    func(record) bool
-}
-
-func indexesOf(t DocType) []index {
-	if len(t.States) == 0 {
-		return []index{{"all", "All", func(record) bool { return true }}}
-	}
-	indexes := make([]index, len(t.States))
-	for i, state := range t.States {
-		indexes[i] = index{state, titleCase(state), func(r record) bool { return r.data["status"] == state }}
-	}
-	return indexes
-}
-
-func (s *Suite) indexContent(t DocType, ix index, records []record, directory string) string {
-	var matching []record
-	for _, r := range records {
-		if r.kind == t.Kind && ix.includes(r) {
-			matching = append(matching, r)
-		}
-	}
-	slices.SortStableFunc(matching, func(a, b record) int {
-		return strings.Compare(fmt.Sprint(a.data["id"]), fmt.Sprint(b.data["id"]))
-	})
-	headings := []string{"ID", "Document", "Revision"}
-	for _, c := range s.columns {
-		headings = append(headings, c.label)
-	}
-	headings = append(headings, "Updated")
-	separators := make([]string, len(headings))
-	for i := range separators {
-		separators[i] = "---"
-	}
-	lines := []string{"# " + t.Title + ": " + ix.title, "",
-		"| " + strings.Join(headings, " | ") + " |", "| " + strings.Join(separators, " | ") + " |"}
-	for _, r := range matching {
-		updated, _ := ISODate(r.data["updated"])
-		cells := []string{fmt.Sprint(r.data["id"]),
-			fmt.Sprintf("[%s](%s)", TableText(fmt.Sprint(r.data["title"])), QuotePath(relSlash(directory, r.path))),
-			fmt.Sprint(r.data["revision"])}
-		for _, c := range s.columns {
-			cells = append(cells, TableText(c.value(r.data)))
-		}
-		cells = append(cells, formatDate(updated))
-		lines = append(lines, "| "+strings.Join(cells, " | ")+" |")
-	}
-	if len(matching) == 0 {
-		lines = append(lines, "", "No documents in this state.")
-	}
-	return strings.Join(lines, "\n") + "\n"
-}
-
-func titleCase(status string) string {
-	words := strings.Split(status, "-")
-	for i, word := range words {
-		if word != "" {
-			words[i] = strings.ToUpper(word[:1]) + word[1:]
-		}
-	}
-	return strings.Join(words, " ")
-}
-
-// discover returns the records of one type and any structural errors. Only
-// README.md and the generated indexes may sit beside records/.
+// discover reads documents directly from their type directory. Walk errors are
+// reported so a query never silently returns an incomplete catalog.
 func discover(root string, t DocType) ([]record, []Issue) {
 	directory := filepath.Join(root, "docs", filepath.FromSlash(t.Folder))
-	records := filepath.Join(directory, RecordsDir)
-	if !within(root, directory) || isFile(directory) {
+	if !within(root, directory) || isFile(directory) || isSymlink(directory) {
 		return nil, []Issue{{relSlash(root, directory), "invalid document directory"}}
 	}
 	var found []record
-	var errors []Issue
-	allowed := map[string]bool{"README.md": true}
-	for _, ix := range indexesOf(t) {
-		allowed[ix.name+".md"] = true
-		if path := filepath.Join(directory, ix.name+".md"); isSymlink(path) || notRegular(path) {
-			errors = append(errors, Issue{relSlash(root, path), "index must be a regular file"})
-		}
-	}
-	for _, path := range markdownFiles(directory) {
-		rel := relSlash(root, path)
-		inRecords := within(records, path) && !isSymlink(path)
-		switch {
-		case filepath.Dir(path) == directory && allowed[filepath.Base(path)]:
-			continue
-		case strings.HasPrefix(relSlash(directory, path), RecordsDir+"/") && !inRecords:
-			errors = append(errors, Issue{rel, "document must be a regular file within " + RecordsDir + "/"})
-			continue
-		case !inRecords:
-			errors = append(errors, Issue{rel, fmt.Sprintf("documents belong in docs/%s/%s/", t.Folder, RecordsDir)})
-			continue
-		}
-		data, err := ReadMetadata(path)
+	var issues []Issue
+	err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			errors = append(errors, Issue{rel, err.Error()})
-			continue
+			if path == directory && os.IsNotExist(err) {
+				return nil
+			}
+			issues = append(issues, Issue{relSlash(root, path), err.Error()})
+			return nil
 		}
-		found = append(found, record{path, rel, data, t.Kind})
+		if entry.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(entry.Name(), ".md") {
+			return nil
+		}
+		rel := relSlash(root, path)
+		if filepath.Dir(path) == directory && entry.Name() == "README.md" {
+			return nil
+		}
+		if filepath.Dir(path) != directory || !entry.Type().IsRegular() || !within(root, path) {
+			issues = append(issues, Issue{rel, "documents belong directly in docs/" + t.Folder + "/ and must be regular files"})
+			return nil
+		}
+		data, body, err := readDocument(path)
+		if err != nil {
+			issues = append(issues, Issue{rel, err.Error()})
+			return nil
+		}
+		found = append(found, record{path: path, rel: rel, data: data, body: body, kind: t.Kind})
+		return nil
+	})
+	if err != nil {
+		issues = append(issues, Issue{relSlash(root, directory), err.Error()})
 	}
-	return found, errors
+	return found, issues
 }
 
 // Issue is one validation error, located in File when it concerns one file.
@@ -482,34 +430,27 @@ func (i Issue) String() string {
 	return i.File + ": " + i.Message
 }
 
-// SyncResult is the state of one suite: its validation errors, or the
-// indexes that differ from what its documents generate.
-type SyncResult struct {
+// ValidationResult contains the documents counted and all validation errors.
+type ValidationResult struct {
 	Documents int     `json:"documents"`
 	Errors    []Issue `json:"errors"`
-	// StaleIndexes lists the indexes, relative to the root, that must be regenerated.
-	StaleIndexes []string `json:"stale_indexes"`
-	updates      []update
 }
 
-type update struct{ path, content string }
-
-// Inspect validates the suite's documents and computes its indexes without
-// writing anything. Indexes are computed only when there are no errors.
-func (s *Suite) Inspect(root string) SyncResult {
+// Inspect validates documents, approvals and relationships without writing.
+func (s *Suite) Inspect(root string) ValidationResult {
 	var records []record
 	var errors []Issue
 	catalog := map[string][]record{}
+	validate := s.validate
+	if validate == nil {
+		validate = validateDocument
+	}
 	for _, t := range s.Types {
 		found, structural := discover(root, t)
 		errors = append(errors, structural...)
-		validate := func(r record, t DocType, s *Suite) []string { return validateDocument(r, t, t.States) }
-		if s.validate != nil {
-			validate = s.validate
-		}
 		for _, r := range found {
 			records = append(records, r)
-			for _, e := range validate(r, t, s) {
+			for _, e := range validate(r, t) {
 				errors = append(errors, Issue{r.rel, e})
 			}
 			if identifier, ok := r.data["id"].(string); ok {
@@ -546,7 +487,7 @@ func (s *Suite) Inspect(root string) SyncResult {
 			case data["id"] != match[1]:
 				errors = append(errors, Issue{rel, "referenced document ID must match filename: " + match[1]})
 			default:
-				catalog[match[1]] = append(catalog[match[1]], record{path, rel, data, ""})
+				catalog[match[1]] = append(catalog[match[1]], record{path: path, rel: rel, data: data})
 			}
 		}
 	}
@@ -565,65 +506,14 @@ func (s *Suite) Inspect(root string) SyncResult {
 		}
 	}
 	errors = append(errors, s.relationErrors(records, catalog)...)
-	result := SyncResult{Documents: len(records), Errors: errors, StaleIndexes: []string{}}
-	if len(errors) > 0 {
-		return result
-	}
-	result.Errors = []Issue{}
-	for _, t := range s.Types {
-		directory := filepath.Join(root, "docs", filepath.FromSlash(t.Folder))
-		for _, ix := range indexesOf(t) {
-			path := filepath.Join(directory, ix.name+".md")
-			content := s.indexContent(t, ix, records, directory)
-			if current, ok := readText(path); !ok || current != content {
-				result.updates = append(result.updates, update{path, content})
-				result.StaleIndexes = append(result.StaleIndexes, relSlash(root, path))
-			}
-		}
-	}
-	return result
+	return ValidationResult{Documents: len(records), Errors: append([]Issue{}, errors...)}
 }
 
-// Sync validates the suite's documents and regenerates one index per state.
-// Documents never move: a status change moves only a row between indexes. It
-// writes only with apply; with check it fails when an index is out of date.
-// Any validation error aborts before the first write.
-func (s *Suite) Sync(root string, apply, check bool, out report.Sink) int {
-	result := s.Inspect(root)
-	if !result.Report(out, apply) {
-		return 1
+// Report emits validation errors and a document count.
+func (r ValidationResult) Report(out report.Sink) bool {
+	for _, e := range r.Errors {
+		out.Emit(report.Error, e.String())
 	}
-	if apply {
-		for _, u := range result.updates {
-			if err := writeText(u.path, u.content); err != nil {
-				report.Emitf(out, report.Error, "%v", err)
-				return 1
-			}
-		}
-	}
-	if check && len(result.StaleIndexes) > 0 {
-		return 1
-	}
-	return 0
-}
-
-// Report writes the result and reports whether it has no validation errors.
-// With applied, the summary says the stale indexes were written.
-func (r SyncResult) Report(out report.Sink, applied bool) bool {
-	if len(r.Errors) > 0 {
-		for _, e := range r.Errors {
-			out.Emit(report.Error, e.String())
-		}
-		report.Emitf(out, report.Plain, "%d validation error(s); no files changed.", len(r.Errors))
-		return false
-	}
-	for _, path := range r.StaleIndexes {
-		out.Emit(report.Index, path)
-	}
-	mode := "Read-only."
-	if applied {
-		mode = "Applied."
-	}
-	report.Emitf(out, report.Plain, "%d document(s); %d index update(s). %s", r.Documents, len(r.StaleIndexes), mode)
-	return true
+	report.Emitf(out, report.Plain, "%d document(s); %d validation error(s). Read-only.", r.Documents, len(r.Errors))
+	return len(r.Errors) == 0
 }

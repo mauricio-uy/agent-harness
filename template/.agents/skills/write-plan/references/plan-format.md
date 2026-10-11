@@ -2,17 +2,16 @@
 
 ## Identity and metadata
 
-Store plans at `docs/plans/records/PLAN-<six-digit-number>-<slug>.md`. A plan never moves: its status decides which generated index in `docs/plans/` lists it, and `docs/plans/README.md` links every index.
-Get the next free ID with `harness id plan`, which counts plans in every state. Recheck uniqueness before saving when work is concurrent. Never reuse an ID or rename an existing plan merely because its title changes.
+Plans live at `docs/plans/PLAN-<six-digit-number>-<slug>.md`. `harness docs new plan` assigns the next free ID, counting plans in every state. A plan keeps its ID and path for good, even when its status or title changes.
 
-The YAML frontmatter is the source of truth. Each plan has:
+The YAML frontmatter is the source of truth. Change it only with `harness docs` commands, which keep these rules. Each plan has:
 
 | Field | Meaning |
 | --- | --- |
 | `id` | Unique, permanent `PLAN-000001` style identifier matching the filename. |
 | `type` | Always `plan`. |
 | `title` | Short, single-line description. |
-| `status` | One of the states below; it decides which index lists the plan. |
+| `status` | One of the states below; it controls discovery filters and execution eligibility. |
 | `created` | Creation date, `YYYY-MM-DD`; never reset. |
 | `updated` | Last substantive content, metadata, or progress update, `YYYY-MM-DD`. |
 | `revision` | Positive integer identifying the content submitted for approval. |
@@ -40,11 +39,11 @@ The record documents human approval; it is not independent evidence of identity 
 
 Normal progression: `draft` -> `awaiting-approval` -> `approved` -> `in-progress` -> `completed`.
 `approved`, `in-progress`, and `completed` require approval of the current revision. Cancellation or replacement must reflect a human decision or an already approved plan.
-To replace a plan, list the old ID in the new plan's `supersedes`. Mark the old plan `superseded` only after the human approves the replacement.
+To replace a plan, add the old ID to the new plan with `harness docs relate NEW OLD --supersedes`. After the human approves the replacement, run `harness docs status OLD superseded`.
 
-Increment `revision` when changing content that requires approval. Return to `draft` or `awaiting-approval` and retain the earlier approval record; it does not authorize the new revision. A revoked approval must be cleared and the plan returned for review. Checkbox updates, dates, and editorial fixes do not change the revision.
+Before changing content that requires approval, run `harness docs revise ID`. It increments `revision`, returns the plan to `draft` and keeps the earlier approval record, which does not authorize the new revision. When the human revokes an approval, run `harness docs revoke ID` to clear it and return the plan for review. Checkbox updates, dates, and editorial fixes do not change the revision.
 
-Keep approval-related changes and their reasons in a short revision history. Terminal plans are historical records; use a new plan for follow-up work.
+Keep approval-related changes and their reasons in a short review history. Terminal plans are historical records; use a new plan for follow-up work.
 
 ## Execution tracking
 
@@ -52,7 +51,7 @@ Give each implementation step a stable ID (`S1`, `S2`, etc.) and a checkbox. Do 
 
 Place the execution checkpoint near the top of the plan. Keep its last completed step, current or next step, concrete resume action, stop reason, and working state current. The step checklist is the authoritative completion record, including when steps finish out of order; the checkpoint points into it rather than duplicating the checklist. Working state identifies partial changes and pending or failing checks, including an intentionally failing test during a paused TDD cycle.
 
-Update the checkpoint, relevant checkboxes, and frontmatter `updated` after each completed step and before pausing or handing off. On resumption, compare them with the actual code and tests; record discrepancies before continuing. A previous test result is historical evidence, not proof that the current checkout passes.
+Update the checkpoint and relevant checkboxes, then run `harness docs touch ID`, after each completed step and before pausing or handing off. On resumption, compare them with the actual code and tests; record discrepancies before continuing. A previous test result is historical evidence, not proof that the current checkout passes.
 
 Append concise execution notes with a date, step ID, and category such as verification, problem, decision, pause, or resume. Record the observation or evidence, impact, and resolution or next action. For branching decisions, preserve the alternatives considered, chosen or proposed direction, rationale, and whether human approval is pending or received. Preserve the reason for earlier pauses even after resolving them; summarize command outcomes rather than copying full logs.
 

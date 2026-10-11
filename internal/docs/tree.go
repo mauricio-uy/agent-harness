@@ -1,7 +1,11 @@
 package docs
 
 import (
+	"io/fs"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"strings"
 )
 
 // tree answers whether paths exist. The staged check copies only Markdown out
@@ -11,6 +15,8 @@ type tree interface {
 	isDir(path string) bool
 	// grep lists the lines of the files other than Markdown under root that match pattern.
 	grep(root, pattern string) ([]grepLine, error)
+	// markdown lists the Markdown files under root whose links are checked.
+	markdown(root string) []string
 }
 
 // diskTree is the file system.
@@ -50,4 +56,55 @@ func (diskTree) grep(root, pattern string) ([]grepLine, error) {
 // grep searches the staged content of the repository the snapshot came from.
 func (t stagedTree) grep(_, pattern string) ([]grepLine, error) {
 	return grepFiles(t.repo, pattern, true)
+}
+
+func (diskTree) markdown(root string) []string { return projectMarkdown(root) }
+
+// The snapshot holds exactly the staged Markdown.
+func (stagedTree) markdown(root string) []string { return markdownFiles(root) }
+
+// projectMarkdown lists the Markdown files under root that Git would not
+// ignore: tracked and untracked ones inside a repository, the ones outside
+// .gitignore elsewhere. Without Git it walks every folder but .git.
+func projectMarkdown(root string) []string {
+	if _, err := exec.LookPath("git"); err != nil {
+		return walkMarkdown(root)
+	}
+	args := []string{"-C", root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"}
+	if exec.Command("git", "-C", root, "rev-parse", "--git-dir").Run() != nil {
+		// Outside a repository git grep is the command that honors .gitignore.
+		// The empty pattern matches every line, and an empty file has no links.
+		args = []string{"-C", root, "grep", "-z", "-l", "--no-index", "--exclude-standard", "-e", "", "--", "*.md"}
+	}
+	output, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return walkMarkdown(root)
+	}
+	var files []string
+	seen := map[string]bool{}
+	for _, name := range strings.Split(string(output), "\x00") {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		// A tracked file deleted from the working tree has no links to check.
+		if name != "" && !seen[name] && isFile(path) {
+			seen[name] = true
+			files = append(files, path)
+		}
+	}
+	return files
+}
+
+func walkMarkdown(root string) []string {
+	var files []string
+	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return nil
+		case entry.IsDir() && entry.Name() == ".git":
+			return filepath.SkipDir
+		case !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md"):
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files
 }

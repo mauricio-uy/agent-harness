@@ -6,7 +6,7 @@
 
 ## Single source of truth
 
-The overview summarizes and links; it never introduces rules, decisions, conventions, requirements, or status. Each of those already has one home: the shared rules in `AGENTS.md`, ADRs and requirements in their indexes, and plans in theirs. Link that home instead of restating its content. The overview holds only what has no other home: the project's purpose and a map of its structure.
+The overview summarizes and links; it never introduces rules, decisions, conventions, requirements, or status. Each of those already has one home: the shared rules in `AGENTS.md`, ADRs, requirements, and plans in their own documents. Link that home instead of restating its content. The overview holds only what has no other home: the project's purpose and a map of its structure.
 
 ## Sections
 
@@ -16,7 +16,7 @@ Use these sections, in order. Keep every section; when one does not apply yet, l
 | --- | --- |
 | Purpose | What the project does and for whom, in a few sentences. |
 | Structure | High-level layout: main directories or components and their responsibility. |
-| Where to look | Links to `docs/README.md`, which indexes decisions, requirements, research, runbooks, and plans, and to `docs/glossary.md`. |
+| Where to look | Links to `docs/README.md`, which explains the document types and their discovery commands, and to `docs/glossary.md`. |
 
 ## Maintenance rule
 
@@ -24,6 +24,6 @@ Update only the section affected by the change. Reflect the resulting state of t
 
 ## Location and creation
 
-The overview always lives at `docs/overview.md`. The path is fixed because skills and `AGENTS.md` read it by that path; do not move or rename it.
+The overview always lives at `docs/overview.md`. The path is fixed because `AGENTS.md` names it by that path; do not move or rename it.
 
 It is created from [the template](../assets/overview-template.md) when the harness is set up in a project. Fill in what is currently known and remove the template comments; leave the rest for later updates.

@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// referenceFixture is a repository with one plan and generated indexes.
+// referenceFixture is a repository with one plan and a guide.
 func referenceFixture(t *testing.T) *fixture {
 	f := stagedFixture(t)
 	f.plan(1, "draft", "null", 1)
 	f.write("docs/guide.md", "# Guide\n")
-	expectStatus(t, f.sync("plans", true, false), 0)
+	expectStatus(t, f.inspect("plans"), 0)
 	f.git("add", ".")
 	return f
 }
@@ -39,24 +39,23 @@ func TestCodeReferencesToDocumentsMustResolve(t *testing.T) {
 	f := referenceFixture(t)
 	f.write("src/app.go", strings.Join([]string{
 		"package app",
-		"// Implements PLAN-000001; see docs/plans/records/PLAN-000001-example.md and docs/guide.md.",
+		"// Implements PLAN-000001; see docs/plans/PLAN-000001-example.md and docs/guide.md.",
 		"// Folder: ./docs/plans/ and ../docs/guide.md",
 		"// Not references: https://example.com/docs/x, mydocs/y, XPLAN-000001, PLAN-0000012",
 		"// Unknown: ADR-000009",
-		"// Moved: docs/plans/PLAN-000001-example.md",
+		"// Moved: docs/plans/records/PLAN-000001-example.md",
 		"// Missing: docs/nowhere.md.",
 	}, "\n")+"\n")
 	f.write("assets/logo.bin", "\x00\x01ADR-000009 docs/nowhere.md")
 	// Paths into docs/ that are not documents belong to other tools.
 	f.write(".gitignore", "docs/_build/\n")
 	f.write("package.json", `{"scripts": {"api": "typedoc --out docs/api"}}`+"\n")
-	f.write(".agents/harness.json", `{"files": {"docs/deleted.md": "sha256:0"}}`)
 	f.git("add", ".")
 	errors := referenceErrors(t, f, false)
 	want := map[string]LinkError{
-		"ADR-000009":                        {Source: "src/app.go", Line: 5, Reason: "no document has this ID"},
-		"docs/plans/PLAN-000001-example.md": {Source: "src/app.go", Line: 6, Reason: "missing target", Suggestion: "docs/plans/records/PLAN-000001-example.md"},
-		"docs/nowhere.md":                   {Source: "src/app.go", Line: 7, Reason: "missing target"},
+		"ADR-000009": {Source: "src/app.go", Line: 5, Reason: "no document has this ID"},
+		"docs/plans/records/PLAN-000001-example.md": {Source: "src/app.go", Line: 6, Reason: "missing target", Suggestion: "docs/plans/PLAN-000001-example.md"},
+		"docs/nowhere.md": {Source: "src/app.go", Line: 7, Reason: "missing target"},
 	}
 	if len(errors) != len(want) {
 		t.Fatalf("got %d errors, want %d: %+v", len(errors), len(want), errors)
@@ -71,7 +70,7 @@ func TestCodeReferencesToDocumentsMustResolve(t *testing.T) {
 
 func TestCodeReferenceToADuplicatedIDFails(t *testing.T) {
 	f := referenceFixture(t)
-	f.write("docs/plans/records/PLAN-000001-copy.md", f.read("docs/plans/records/PLAN-000001-example.md"))
+	f.write("docs/plans/PLAN-000001-copy.md", f.read("docs/plans/PLAN-000001-example.md"))
 	f.write("src/app.go", "// PLAN-000001\n")
 	f.git("add", ".")
 	errors := referenceErrors(t, f, false)
@@ -94,16 +93,36 @@ func TestStagedCodeReferencesUseTheIndex(t *testing.T) {
 	}
 }
 
-func TestGitAttributeExcludesFilesFromReferenceChecks(t *testing.T) {
+func TestIgnoreFileExcludesFilesFromReferenceChecks(t *testing.T) {
 	f := referenceFixture(t)
-	f.write(".gitattributes", "tests/** harness-ignore\n")
+	f.write(ignoreFile, "tests/\n")
 	f.write("tests/parse_test.go", "// parse(\"ADR-000123\")\n")
 	f.write("src/app.go", "// ADR-000124\n")
 	f.git("add", ".")
 	for _, staged := range []bool{false, true} {
 		errors := referenceErrors(t, f, staged)
 		if len(errors) != 1 || errors[0].Destination != "ADR-000124" {
-			t.Errorf("staged=%v: only files without the attribute are checked: %+v", staged, errors)
+			t.Errorf("staged=%v: only files the ignore file does not list are checked: %+v", staged, errors)
+		}
+	}
+}
+
+func TestReferenceChecksIgnoreDocumentPathsInsideExternalURLs(t *testing.T) {
+	f := referenceFixture(t)
+	f.write("src/urls.go", strings.Join([]string{
+		`// https://example.org/docs/decisions/ADR-000999-external.md`,
+		`// https://example.org/?doc=docs/decisions/accepted.md`,
+		`// https://example.org/#docs/decisions/accepted.md`,
+		`// https://example.org/(docs/decisions/accepted.md)`,
+		`// URL=https://example.org/?doc=docs/decisions/accepted.md`,
+		`// //example.org/docs/decisions/ADR-000998-external.md`,
+		`// Local: ./docs/missing.md`,
+	}, "\n"))
+	f.git("add", ".")
+	for _, staged := range []bool{false, true} {
+		errors := referenceErrors(t, f, staged)
+		if len(errors) != 1 || errors[0].Destination != "./docs/missing.md" {
+			t.Fatalf("staged=%v: external URLs must not be project references: %+v", staged, errors)
 		}
 	}
 }

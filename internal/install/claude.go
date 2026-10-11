@@ -28,6 +28,9 @@ const (
 // keeps the adapter instead, so its Claude-specific frontmatter stays out of
 // the shared skill.
 func (in *Installer) linkClaudeSkills() error {
+	if err := safePath(in.Root, filepath.Join(in.Root, ".claude", "skills")); err != nil {
+		return err
+	}
 	skills, err := in.claudeLinkedSkills()
 	if err != nil {
 		return err
@@ -138,7 +141,7 @@ func (in *Installer) updateIgnoreBlock(entries []string) error {
 	if updated == content {
 		return nil
 	}
-	if err := os.WriteFile(target, []byte(updated), 0o644); err != nil {
+	if err := in.writeFile(".gitignore", []byte(updated)); err != nil {
 		return err
 	}
 	in.Out.Emit(report.Update, ".gitignore (skill links)")

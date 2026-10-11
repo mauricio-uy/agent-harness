@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/colorprofile"
@@ -46,25 +45,21 @@ func resolveVersion(linked string, info *debug.BuildInfo) string {
 // now is replaceable so tests can fix the date.
 var now = time.Now
 
-const usage = `harness installs and maintains a documentation-first agent harness.
+const usage = `harness installs a documentation-first agent harness.
 
 Usage:
   harness init   [--root DIR] [--clients LIST]   install the harness and client files
   harness link   [--root DIR]                    recreate client skill links in this clone
-  harness upgrade [--root DIR] [--apply]         update installed files the project has not changed
   harness doctor [--root DIR]                    check how the harness is set up in this clone
-  harness sync   [--root DIR] [--apply|--check] [SUITE...]
-                                                 validate documents and regenerate indexes
+  harness docs COMMAND [FLAGS] [ARGS]            find documents and change their frontmatter
   harness check  [--root DIR] [--staged] [--format text|github|json] [--report-dir DIR]
                                                  run every read-only check
-  harness id     [--root DIR] TYPE                print the next free ID of a document type
-  harness date                                    print today's date as YYYY-MM-DD
+  harness date                                   print today's date as YYYY-MM-DD
   harness version
 
-Suites: plans, specifications, research, runbooks (default: all).
-Types: plan, adr, use-case, functional-requirement, non-functional-requirement,
-research, runbook, or their ID prefixes.
 Clients: claude-code, codex, opencode, pi; "none" installs only the base.
+Without --root, link, doctor, docs and check use the nearest directory with
+.agents/harness.json.
 `
 
 // IO carries the streams a command uses, so tests can drive it.
@@ -100,26 +95,19 @@ func Run(args []string, streams IO) int {
 		} else {
 			summarize(printer, err)
 		}
-	case "upgrade":
-		var applied bool
-		applied, err = runUpgrade(rest, streams, printer)
-		if applied {
-			summarize(printer, err)
-		} else if err == nil && printer.Count("created")+printer.Count("updated") > 0 {
-			report.Blank(printer)
-			printer.Emit(report.Plain, ui.Warning("Nothing written. The upgrade would do: "+printer.Summary()))
-		}
-	case "sync":
-		status, err = runSync(rest, streams, printer)
+	case "docs":
+		return runDocs(rest, streams)
 	case "check":
 		status, err = runCheck(rest, streams, printer)
-	case "id":
-		err = runID(rest, streams)
 	case "date":
 		err = runDate(rest, streams)
 	case "version", "--version":
 		fmt.Fprintln(streams.Out, version())
 	case "help", "-h", "--help":
+		if len(rest) > 0 {
+			fmt.Fprintln(streams.Err, "use harness <command> --help for command help")
+			return 2
+		}
 		fmt.Fprint(streams.Out, usage)
 	default:
 		fmt.Fprintf(streams.Err, "unknown command %q\n\n%s", command, usage)
@@ -156,6 +144,20 @@ func newFlags(name string, streams IO) (*flag.FlagSet, *string) {
 	return flags, root
 }
 
+// queryRoot keeps an explicit --root. Otherwise it searches upward from the
+// working directory for the installation, falling back to the default.
+func queryRoot(flags *flag.FlagSet, root string) string {
+	explicit := false
+	flags.Visit(func(f *flag.Flag) { explicit = explicit || f.Name == "root" })
+	if explicit {
+		return root
+	}
+	if found, ok := install.FindRoot("."); ok {
+		return found
+	}
+	return root
+}
+
 func absolute(root string) (string, error) {
 	path, err := filepath.Abs(root)
 	if err != nil {
@@ -189,7 +191,7 @@ func runInit(args []string, streams IO, out report.Sink) error {
 	if err != nil {
 		return err
 	}
-	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out}
 	return installer.Init(clients)
 }
 
@@ -204,50 +206,12 @@ func runLink(args []string, streams IO, out report.Sink) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	path, err := absolute(*root)
+	path, err := absolute(queryRoot(flags, *root))
 	if err != nil {
 		return err
 	}
 	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out}
 	return installer.Link()
-}
-
-func runSync(args []string, streams IO, out report.Sink) (int, error) {
-	flags, root := newFlags("sync", streams)
-	apply := flags.Bool("apply", false, "write index and plan changes")
-	check := flags.Bool("check", false, "write nothing; fail when synchronization is needed")
-	if err := flags.Parse(args); err != nil {
-		return 0, err
-	}
-	if *apply && *check {
-		return 0, errors.New("--apply and --check are mutually exclusive")
-	}
-	path, err := absolute(*root)
-	if err != nil {
-		return 0, err
-	}
-	suites := flags.Args()
-	if len(suites) == 0 {
-		suites = docs.Suites
-	}
-	for _, name := range suites {
-		if !slices.Contains(docs.Suites, name) {
-			return 0, fmt.Errorf("unknown suite %q; choose from %s", name, strings.Join(docs.Suites, ", "))
-		}
-	}
-	status := 0
-	for _, name := range suites {
-		if len(suites) > 1 {
-			report.Blank(out)
-			out.Emit(report.Section, name)
-		}
-		result, err := docs.SyncSuite(name, path, *apply, *check, out)
-		if err != nil {
-			return 0, err
-		}
-		status = max(status, result)
-	}
-	return status, nil
 }
 
 func runCheck(args []string, streams IO, out report.Sink) (int, error) {
@@ -261,7 +225,7 @@ func runCheck(args []string, streams IO, out report.Sink) (int, error) {
 	if !slices.Contains([]string{"text", "github", "json"}, *format) {
 		return 0, fmt.Errorf("unknown format %q", *format)
 	}
-	path, err := absolute(*root)
+	path, err := absolute(queryRoot(flags, *root))
 	if err != nil {
 		return 0, err
 	}
@@ -299,27 +263,6 @@ func runCheck(args []string, streams IO, out report.Sink) (int, error) {
 	return 0, nil
 }
 
-// runID prints the next free ID of a document type, for an agent to use as is.
-func runID(args []string, streams IO) error {
-	flags, root := newFlags("id", streams)
-	if err := flags.Parse(args); err != nil {
-		return err
-	}
-	if flags.NArg() != 1 {
-		return fmt.Errorf("name one document type: %s", strings.Join(docs.TypeNames(), ", "))
-	}
-	path, err := absolute(*root)
-	if err != nil {
-		return err
-	}
-	id, err := docs.NextID(path, flags.Arg(0))
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(streams.Out, id)
-	return nil
-}
-
 // runDate prints the system's local date, so an agent never guesses it.
 func runDate(args []string, streams IO) error {
 	flags := flag.NewFlagSet("harness date", flag.ContinueOnError)
@@ -334,30 +277,15 @@ func runDate(args []string, streams IO) error {
 	return nil
 }
 
-// runUpgrade reports whether it applied the upgrade rather than previewing it.
-func runUpgrade(args []string, streams IO, out report.Sink) (bool, error) {
-	flags, root := newFlags("upgrade", streams)
-	apply := flags.Bool("apply", false, "write the changes instead of previewing them")
-	if err := flags.Parse(args); err != nil {
-		return true, err
-	}
-	path, err := absolute(*root)
-	if err != nil {
-		return true, err
-	}
-	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
-	return *apply, installer.Upgrade(*apply)
-}
-
 func runDoctor(args []string, streams IO, out report.Sink) error {
 	flags, root := newFlags("doctor", streams)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	path, err := absolute(*root)
+	path, err := absolute(queryRoot(flags, *root))
 	if err != nil {
 		return err
 	}
-	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out, Version: version()}
+	installer := &install.Installer{Root: path, Payload: harness.Payload, Out: out}
 	return installer.Doctor()
 }
