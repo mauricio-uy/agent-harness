@@ -79,7 +79,7 @@ You choose which agents to set up during installation. The base install works wi
 | --- | --- |
 | Claude Code | A link to each skill in `.claude/skills/`, and a version of `write-plan` that only runs when you call it. Claude Code [reads `AGENTS.md`](https://code.claude.com/docs/en/memory) on its own. |
 | Codex | An `agents/openai.yaml` file in each skill that tells Codex when it can use it. |
-| OpenCode | A few entries in `opencode.json` that stop it from loading `write-plan` by itself, and a `/write-plan` command. |
+| OpenCode | A few entries in `opencode.json` that stop it from loading `write-plan` by itself, and a `/write-plan` command. OpenCode reads both `.claude/skills/` and `.agents/skills/`, but it keeps one skill per name, so installing it next to Claude Code does not duplicate them. |
 | Pi | Nothing. Pi reads `.agents/skills/` and `AGENTS.md` directly. |
 
 Every agent runs `harness` from its own shell, so keep it on your `PATH`. You can see the agents' files in [template-clients/](template-clients/). Here is how you call the skills in each agent:
