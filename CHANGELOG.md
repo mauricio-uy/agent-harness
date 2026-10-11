@@ -45,6 +45,10 @@ This release replaces the generated status indexes with document commands. Agent
 - `harness docs status` refuses to leave `superseded`, `cancelled`, `completed` or `retired`. Before, a superseded ADR could become approved again next to its replacement, and a completed plan could return to `in-progress`.
 - `harness docs revise` refuses an approved ADR. A changed decision needs a new ADR created with `--supersedes`.
 
+### Approval request
+
+- The plan, specification, research and runbook skills ask for approval with the same steps. While blocking questions remain, the agent presents them with the draft and keeps it in `draft`. When none remain, it runs `harness docs status ID awaiting-approval`, presents the document and waits for the human. Before, each skill used its own order, and `write-runbook` never set `awaiting-approval`.
+
 ### Templates
 
 - Every document template starts with `supersedes: []`, so `harness docs` returns the same fields for every type.
