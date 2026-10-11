@@ -26,7 +26,7 @@ func TestDoctorRequiresHarnessOnPath(t *testing.T) {
 	defer func() { lookPath = func(string) (string, error) { return "/usr/local/bin/harness", nil } }()
 	out, err := doctor(t, root)
 	if err == nil {
-		t.Fatalf("clients cannot start the MCP server without harness on PATH:\n%s", out)
+		t.Fatalf("agents and the Git hook cannot run harness without it on PATH:\n%s", out)
 	}
 	expect(t, out, "harness is not on PATH")
 }
